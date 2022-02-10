@@ -51,6 +51,22 @@ ties_knownsource <- ties_knownsource[ties_knownsource$arsubtype1 != 'transfer',]
 threats <- which(!is.na(ties_knownsource$arsubtype3) & ties_knownsource$arsubtype3 == 'threatening')
 ties_knownsource <- ties_knownsource[-threats,] # remove threats as a tie
 
+# Reverse the direction of ties capturing 'hearing'
+ties_knownsource$target <- ties_knownsource$source <- NA
+
+for(i in 1:nrow(ties_knownsource)){
+  if(!is.na(ties_knownsource$arsubtype3[i]) & ties_knownsource$arsubtype3[i] == 'hearing'){
+    ties_knownsource$source[i] <- ties_knownsource$to[i]
+    ties_knownsource$target[i] <- ties_knownsource$from[i]
+  }else{
+    ties_knownsource$source[i] <- ties_knownsource$from[i]
+    ties_knownsource$target[i] <- ties_knownsource$to[i]
+  }
+}
+
+ties_knownsource$from <- ties_knownsource$source
+ties_knownsource$to <- ties_knownsource$target
+
 ########################################################################################################################
 
 # EXTRACTION OF TIES AND INCULPATIONS
@@ -85,6 +101,37 @@ sum(inculpations) # 85
 sum(inculpations) - sum(diag(inculpations)) # 70 inculpations plus 15 self-inculpations
 diag(inculpations) <- 0
 
+# Explicit illicit speech only
+illicit_speech <- ties_knownsource[ties_knownsource$arsubtype1 %in% c('flow','reading'),]
+mutuals <- illicit_speech[illicit_speech$arsubtype1 != 'flow' | (illicit_speech$arsubtype1 == 'flow' & illicit_speech$arsubtype3 == 'conversation'),]
+unidirect <- illicit_speech[illicit_speech$arsubtype1 == 'flow' & illicit_speech$arsubtype3 != 'conversation',]
+
+# Obtaining the illicit speech network
+illicit1 <- graph_from_edgelist(as.matrix(mutuals[,c('from','to')]),directed=FALSE) # mutual ties
+illicit1 <- 1*(as.matrix(get.adjacency(illicit1)) != 0)
+illicit2 <- graph_from_edgelist(as.matrix(unidirect[,c('from','to')]),directed=TRUE) # unidirectional ties
+illicit2 <- 1*(as.matrix(get.adjacency(illicit2)) != 0)
+
+illicit_speech <- network*0
+
+for(i in rownames(illicit1)){
+  for(j in colnames(illicit1)){
+    if(illicit1[i,j] == 1){
+      illicit_speech[i,j] <- illicit1[i,j]
+    }
+  }
+}
+
+for(i in rownames(illicit2)){
+  for(j in colnames(illicit2)){
+    if(illicit2[i,j] == 1){
+      illicit_speech[i,j] <- illicit2[i,j]
+    }
+  }
+}
+
+sum(illicit_speech)
+
 ########################################################################################################################
 
 # CREATION OF COLOCATION (SAME RESIDENCE) AND KINSHIP MATRICES
@@ -113,7 +160,7 @@ sum(kinship,na.rm = TRUE)/2 # 57
 
 ########################################################################################################################
 
-# ENLARGE NETWORK AND INCULPATIONS TO 79 SUBJECTS
+# ENLARGE NETWORK, INCULPATIONS, AND ILLICIT SPEECH TO 79 SUBJECTS
 mtx <- kinship*0
 mtx[is.na(mtx)] <- 0
 
@@ -134,6 +181,16 @@ for(i in rownames(inculpations)){
 }
 
 inculpations <- mtx # inculpations
+
+mtx <- mtx*0
+
+for(i in rownames(illicit_speech)){
+  for(j in colnames(illicit_speech)){
+    mtx[i,j] <- illicit_speech[i,j]
+  }
+}
+
+illicit_speech <- mtx # illicit speech
 rm(mtx)
 
 ########################################################################################################################
@@ -143,6 +200,7 @@ ntw_objs <- list()
 
 ntw_objs[['network']] <- network(network,directed=TRUE)
 ntw_objs[['inculpations']] <- network(inculpations,directed=TRUE)
+ntw_objs[['illicit_speech']] <- network(illicit_speech,directed=TRUE)
 ntw_objs[['colocation']] <- network(colocation,directed=FALSE)
 ntw_objs[['kinship']] <- network(kinship,directed=FALSE)
 
@@ -166,6 +224,7 @@ igraph_objs <- list()
 
 igraph_objs[['network']] <- graph_from_adjacency_matrix(network,mode='directed')
 igraph_objs[['inculpations']]<- graph_from_adjacency_matrix(inculpations,mode='directed')
+igraph_objs[['illicit_speech']]<- graph_from_adjacency_matrix(illicit_speech,mode='directed')
 igraph_objs[['colocation']] <- graph_from_adjacency_matrix(colocation,mode='undirected')
 igraph_objs[['kinship']] <- graph_from_adjacency_matrix(kinship,mode='undirected')
 
@@ -222,6 +281,21 @@ plot(igraph_objs$network,
      main = "Social Network reported")
 dev.off()
 
+jpeg(filename='Illicit_speech.jpeg',width=15,height=15,units='in',res=500)
+plot(igraph_objs$illicit_speech,
+     vertex.color = ifelse(V(igraph_objs$network)$sex == 'Woman', "tomato", "grey"),
+     vertex.shape = ifelse(V(igraph_objs$network)$sentenced == 'Yes', "square", "circle"),
+     vertex.size = 5,
+     vertex.label.size = 1,
+     vertex.label.color = 'black',
+     edge.color = "black",
+     edge.width = 1,
+     edge.arrow.size = 0.5,
+     layout = lyt,
+     mark.groups = cluster_louvain(igraph_objs$colocation),
+     main = "Illicit speech")
+dev.off()
+
 jpeg(filename='Kinship.jpeg',width=15,height=15,units='in',res=500)
 plot(igraph_objs$kinship,
      vertex.color = ifelse(V(igraph_objs$kinship)$sex == 'Woman', "tomato", "grey"),
@@ -276,6 +350,20 @@ plot(igraph_objs_red$network,
      main = "Social Network reported (reduced)")
 dev.off()
 
+jpeg(filename='Illicit_speech_red.jpeg',width=15,height=15,units='in',res=500)
+plot(igraph_objs_red$illicit_speech,
+     vertex.color = ifelse(V(igraph_objs_red$network)$sex == 'Woman', "tomato", "grey"),
+     vertex.shape = ifelse(V(igraph_objs_red$network)$sentenced == 'Yes', "square", "circle"),
+     vertex.size = 5,
+     vertex.label.color = 'black',
+     edge.color = "black",
+     edge.width = 1,
+     edge.arrow.size = 0.5,
+     layout = lyt_red,
+     mark.groups = cluster_louvain(igraph_objs_red$colocation),
+     main = "Illicit speech (reduced)")
+dev.off()
+
 jpeg(filename='Kinship_red.jpeg',width=15,height=15,units='in',res=500)
 plot(igraph_objs_red$kinship,
      vertex.color = ifelse(V(igraph_objs_red$kinship)$sex == 'Woman', "tomato", "grey"),
@@ -295,9 +383,8 @@ dev.off()
 
 # Dissidence network by reporter
 # Get the IDs of those who reported others (witnesses)
-reporters <- unique(ties$deponent)
+reporters <- unique(ties_knownsource$deponent)
 reporters <- reporters[order(reporters)]
-reporters <- reporters[-1] # the "*"
 
 # Split the data by reporter
 subntw <- vector('list',length=length(reporters))
@@ -363,7 +450,7 @@ dev.off()
 # Removal of unnecessary objects
 rm(alltogether);rm(others);rm(defendants);rm(subgraph);rm(subgraph_plot);rm(ties);rm(ties_knownsource)
 rm(ties_unknownsource);rm(i);rm(j);rm(reporters);rm(x);rm(subntw);rm(igraph_objs_red)
-rm(unidirect);rm(mutuals);rm(threats);rm(ntw1);rm(ntw2)
+rm(unidirect);rm(mutuals);rm(threats);rm(ntw1);rm(ntw2);rm(illicit1);rm(illicit2)
 
 # Save image
 save.image('Kent_data.RData')

@@ -9,15 +9,15 @@ rm(list=ls())
 load('Kent_data.RData')
 
 # Required packages
-library('sna');library('igraph');library('influenceR');library(statnet);library(Bergm)
+library(sna);library(igraph);library(influenceR);library(statnet);library(Bergm)
 
 ########################################################################################################################
 
 # DESCRIPTIVE OF THE NETWORKS
-ntw_descript <- as.data.frame(matrix(NA,nrow=12,ncol=4,
+ntw_descript <- as.data.frame(matrix(NA,nrow=12,ncol=5,
                                      dimnames = list(c('den','ave deg','max outdeg','max indeg','recip','trans','iso',
                                                        'assort_sex','assort_def','assort_witn','assort_sent','assort_deg'),
-                                                     c('network','inculpation','colocation','kinship'))))
+                                                     c('network','inculpation','illicit speech','colocation','kinship'))))
 
 for(i in seq_along(ntw_objs)){
   ntw_descript[1,i] <- gden(ntw_objs[[i]])*100
@@ -49,10 +49,10 @@ Jaccard <- function(matrix1,matrix2){
   return(outcome)
 }
 
-biv_descript <- as.data.frame(matrix(NA,nrow=4,ncol=4,
-                                     dimnames = list( c('network','inculpation','colocation','kinship'),
-                                                     c('network','inculpation','colocation','kinship'))))
-mtx <- list(network,inculpations,colocation,kinship)
+biv_descript <- as.data.frame(matrix(NA,nrow=5,ncol=5,
+                                     dimnames = list( c('network','inculpation','illicit speech','colocation','kinship'),
+                                                     c('network','inculpation','illicit speech','colocation','kinship'))))
+mtx <- list(network,inculpations,illicit_speech,colocation,kinship)
 names(mtx) <- rownames(biv_descript)
 
 for(i in rownames(biv_descript)){
@@ -93,6 +93,17 @@ summary(ntw_objs$inculpations ~ edges + mutual +
           nodeofactor('witness') + 
           nodeifactor('sentenced'))
 
+summary(ntw_objs$illicit_speech ~ edges + mutual +
+          gwodegree(decay=log(2),fixed=TRUE) +
+          gwidegree(decay=log(2),fixed=TRUE) +
+          dgwdsp(decay=log(2),fixed=TRUE,type='OTP') +
+          dgwesp(decay=log(2),fixed=TRUE,type='OTP') +
+          isolates() +
+          edgecov(kinship) + edgecov(colocation) +
+          nodeofactor('sex') + nodeifactor('sex') + nodematch('sex') +
+          nodeofactor('witness') + 
+          nodeifactor('sentenced'))
+
 # MODELLING
 set.seed(0708)
 model1 <- bergm(ntw_objs$network ~ edges + mutual +
@@ -122,7 +133,22 @@ model2 <- bergm(ntw_objs$inculpations ~ edges + mutual +
                   nodeifactor('sentenced'),
                 burn.in=1000,main.iters=5000,gamma=0.30,
                 prior.mean=c(rep(0,14)),prior.sigma=diag(5,14))
-summary(model2)  
+summary(model2) 
+
+set.seed(0708)
+model3 <- bergm(ntw_objs$illicit_speech ~ edges + mutual +
+                  gwodegree(decay=log(2),fixed=TRUE) +
+                  gwidegree(decay=log(2),fixed=TRUE) +
+                  dgwdsp(decay=log(2),fixed=TRUE,type='OTP') +
+                  dgwesp(decay=log(2),fixed=TRUE,type='OTP') +
+                  isolates() +
+                  edgecov(kinship) + edgecov(colocation) +
+                  nodeofactor('sex') + nodeifactor('sex') + nodematch('sex') +
+                  nodeofactor('witness') + 
+                  nodeifactor('sentenced'),
+                burn.in=1000,main.iters=5000,gamma=0.30,
+                prior.mean=c(rep(0,14)),prior.sigma=diag(5,14))
+summary(model3) 
 
 ########################################################################################################################
 
@@ -158,7 +184,7 @@ for(i in 1:nrow(model1results)){
 # Significance symbols
 model1results$sig <- sig(model1results$p)
 model1results
-write.table(model1results,'results model 1.csv',row.names=TRUE,sep=',')
+write.table(model1results,'results ERGM model 1.csv',row.names=TRUE,sep=',')
 
 # MODEL 2 (INCULPATIONS)
 posteriors <- data.frame(model2$Theta)
@@ -182,7 +208,31 @@ for(i in 1:nrow(model2results)){
 # Significance symbols
 model2results$sig <- sig(model2results$p)
 model2results
-write.table(model2results,'results model 2.csv',row.names=TRUE,sep=',')
+write.table(model2results,'results ERGM model 2.csv',row.names=TRUE,sep=',')
+
+# MODEL 3 (ILLICIT SPEECH)
+posteriors <- data.frame(model3$Theta)
+
+# Estimates
+model3results <- data.frame(coeff=apply(posteriors,2,mean))
+
+# Name of effects estimated
+rownames(model3results) <- c('edges','mutual','gwodeg','gwideg','gwdsp','gwesp','isolates','kinship','same setting',
+                             'female (out)','female (in)','same sex','witness (out)','sentenced (in)')
+
+# Extraction of Bayesian p values
+for(i in 1:nrow(model3results)){
+  if(model3results[i,'coeff'] > 0){
+    model3results[i,'p'] <- sum(posteriors[,i] < 0)/length(posteriors[,i])
+  }else{
+    model3results[i,'p'] <- sum(posteriors[,i] > 0)/length(posteriors[,i])
+  }
+}
+
+# Significance symbols
+model3results$sig <- sig(model3results$p)
+model3results
+write.table(model3results,'results ERGM model 3.csv',row.names=TRUE,sep=',')
 
 ########################################################################################################################
 
@@ -193,6 +243,10 @@ dev.off()
 
 jpeg(filename='GOF model 2.jpeg',width=10,height=8,units='in',res=500)
 bgof(model2)
+dev.off()
+
+jpeg(filename='GOF model 3.jpeg',width=10,height=8,units='in',res=500)
+bgof(model3)
 dev.off()
 
 ########################################################################################################################
