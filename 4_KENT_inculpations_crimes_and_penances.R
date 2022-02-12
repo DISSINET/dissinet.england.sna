@@ -58,20 +58,20 @@ crimes_and_penances[,12] <-  apply(crimes_and_penances[,12:13],1,max,na.rm=TRUE)
 crimes_and_penances <- crimes_and_penances[,-c(6,11,13)]
 
 # These leaves with 13 crimes or charges
-names(crimes_and_penances) <- c('id','Eucharist','Baptism','Confirmation','Confession','Priest authority','Matrimony','Extreme unction',
-                                'Pilgrimages','Images','Praying saints','Blessing meal','Heterodoxy','Concealment','punishment')
+names(crimes_and_penances) <- c('id','Eucharist','Baptism','Confirmation','Confession','Priesthood','Matrimony','Extreme unction',
+                                'Pilgrimages','Images','Praying to saints','Blessing meal','Christology','Concealment','punishment')
 
 ########################################################################################################################
 
 # BIVARIATE: CRIMES AND PENANCES 
-LDA_penance <- lda(punishment ~ Eucharist + Baptism + Confirmation + Confession + `Priest authority` + Matrimony + 
-                     `Extreme unction` + Pilgrimages + Images + `Praying saints` + `Blessing meal` + Heterodoxy + Concealment,
+LDA_penance <- lda(punishment ~ Eucharist + Baptism + Confirmation + Confession + Priesthood + Matrimony + 
+                     `Extreme unction` + Pilgrimages + Images + `Praying to saints` + `Blessing meal` + Christology + Concealment,
                    data=crimes_and_penances)
 
 penances_mean <- round(LDA_penance$means[c(3,1,2),]*100,1)
 
 # Visualisation
-jpeg(filename='Crimes_penances.jpeg',width=8,height=5,units='in',res=500)
+jpeg(filename='Crimes_penances.jpeg',width=10,height=7.5,units='in',res=500)
 ggballoonplot(penances_mean,fill='value',show.label = FALSE) +
   gradient_fill(c("red", "gold", "forestgreen")) + 
   labs(fill='Frequency',size='Frequency') 
