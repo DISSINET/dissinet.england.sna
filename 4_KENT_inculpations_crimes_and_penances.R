@@ -10,7 +10,7 @@ load('Kent_data.RData')
 crimes_and_penances <- readxl::read_excel('Kent crime and punishment data.xlsx',sheet='Sheet1') # info on individuals
 
 # Required packages
-library(igraph);library(MASS);library(ggpubr);library(factoextra)
+library(igraph);library(MASS);library(ggpubr);library(FactoMineR);library(factoextra)
 
 ########################################################################################################################
 
@@ -88,27 +88,39 @@ table(crimes_and_penances$punishment,crimes_and_penances$witness) # punishment r
 
 ########################################################################################################################
 
-# PRINCIPAL COMPONENT ANALYSIS TO REDUCE CRIMES
-crimes <- as.data.frame(crimes_and_penances[,2:14])
+# MULTIPLE CORRESPONDENCE ANALYSIS
+crimes <- as.data.frame(crimes_and_penances[,2:14]) 
 rownames(crimes) <- persons[persons$id %in% crimes_and_penances$id,]$label
+# Define as categorical
+for(i in 1:ncol(crimes)){
+  crimes[,i] <- factor(crimes[,i],levels=0:1,labels=c('no','yes'))
+}
 
-(PCA_crimes <- prcomp(crimes,center=TRUE,scale=TRUE)) # Three components 
-PCA_crimes$rotation[,1:3] # see loading of the first three components
+(MCA_crimes <- MCA(crimes,ncp=2,graph=FALSE))
+p1 <- fviz_eig(MCA_crimes,addlabels=TRUE) # scree plot
+# Correlation between variables and principal dimensions
+p2 <- fviz_mca_var(MCA_crimes,choice = "mca.cor",col.var='royalblue',shape.var='circle',repel = TRUE)
 
-# Visualisation
-p1 <- fviz_eig(PCA_crimes)
-p2 <- fviz_pca_var(PCA_crimes, col.var = "contrib", gradient.cols = c("red", "gold", "forestgreen"), repel = TRUE)
-p3 <- fviz_pca_biplot(PCA_crimes, repel = TRUE, col.var = "royalblue",col.ind = "darkgrey")
+var <- get_mca_var(MCA_crimes)
+(var$coord) # Coordinates
+(var$cos2) # Cos2: quality on the factor map
+(var$contrib) # Contributions to the principal components
 
-jpeg(filename='pca_crimes.jpeg',width=15,height=7.5,units='in',res=500)
-ggarrange(p1,p2,p3,
-          common.legend = TRUE,
-          nrow=1,ncol=3)
+fviz_mca_var(MCA_crimes, col.var = "cos2",gradient.cols=c("red","gold","forestgreen"),shape.var='circle',repel = TRUE)
+fviz_cos2(MCA_crimes, choice = "var", axes = 1:2)
+
+fviz_mca_var(MCA_crimes,col.var="contrib",gradient.cols=c("red","gold","forestgreen"),shape.var='circle',repel = TRUE)
+p3 <- fviz_contrib(MCA_crimes,choice="var",axes=1,top=10) # Contributions of rows to dimension 1
+p4 <- fviz_contrib(MCA_crimes,choice="var",axes=2,top=10) # Contributions of rows to dimension 2
+
+p5 <- fviz_mca_biplot(MCA_crimes,axes=1:2,repel = TRUE,col.var='royalblue',col.ind='tomato')
+
+jpeg(filename='mca_crimes.jpeg',width=15,height=12,units='in',res=500)
+ggarrange(ggarrange(p1,p3,p4,nrow=3,labels=c('A','C','D')),ggarrange(p2,p5,nrow=2,labels=c('B','E')),
+          ncol=2,widths=c(.75,1))
 dev.off()
 
-# Extraction of the fist three components
-crimes_and_penances$PC1 <- PCA_crimes$x[,1]
-crimes_and_penances$PC2 <- PCA_crimes$x[,2]
-crimes_and_penances$PC3 <- PCA_crimes$x[,3]
+crimes_and_penances$PD1 <- MCA_crimes$ind$coord[,1]
+crimes_and_penances$PD2 <- MCA_crimes$ind$coord[,2]
 
 ########################################################################################################################
