@@ -1,5 +1,5 @@
 ## LOLLARDS DATA
-## KENT - INCULPATIONS, CRIMES, AND PENANCES (5)
+## KENT - INCULPATIONS, CRIMES, AND PENANCES (4)
 ## R script written by Jose Luis Estevez (Masaryk University)
 ## Date: Feb 11th 2022
 ########################################################################################################################
@@ -79,15 +79,6 @@ dev.off()
 
 ########################################################################################################################
 
-# ADDITION OF SEX, WITNESSES, AND AGAINST HOW MANY THEY DEPOSED
-crimes_and_penances$woman <- ifelse(persons[persons$id %in% crimes_and_penances$id,]$sex == 'f',1,0)
-table(crimes_and_penances$punishment,crimes_and_penances$woman) # punishment received by sex
-
-crimes_and_penances$witness <- persons[persons$id %in% crimes_and_penances$id,]$witness # 14 of the 15 witnesses
-table(crimes_and_penances$punishment,crimes_and_penances$witness) # punishment received by witness or not
-
-########################################################################################################################
-
 # MULTIPLE CORRESPONDENCE ANALYSIS
 crimes <- as.data.frame(crimes_and_penances[,2:14]) 
 rownames(crimes) <- persons[persons$id %in% crimes_and_penances$id,]$label
@@ -122,5 +113,85 @@ dev.off()
 
 crimes_and_penances$PD1 <- MCA_crimes$ind$coord[,1]
 crimes_and_penances$PD2 <- MCA_crimes$ind$coord[,2]
+
+########################################################################################################################
+
+# ADDITION OF SEX, WITNESSES, AND AGAINST HOW MANY THEY DEPOSED
+crimes_and_penances$woman <- ifelse(persons[persons$id %in% crimes_and_penances$id,]$sex == 'f',1,0)
+table(crimes_and_penances$punishment,crimes_and_penances$woman) # punishment received by sex
+
+crimes_and_penances$witness <- persons[persons$id %in% crimes_and_penances$id,]$witness # 14 of the 15 witnesses
+table(crimes_and_penances$punishment,crimes_and_penances$witness) # punishment received by witness or not
+
+persons$inculpations <- rowSums(inculpations)
+crimes_and_penances$inculpations <- persons[persons$id %in% crimes_and_penances$id,]$inculpations 
+table(crimes_and_penances$punishment,crimes_and_penances$inculpations) 
+# logarithm version
+crimes_and_penances$`inculpations (log)` <- log(crimes_and_penances$inculpations + 1)
+
+########################################################################################################################
+
+# BIVARIATE DESCRIPTION
+
+# change reference category
+crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Minor','Faggot','Prison'))
+# simplify to major vs minor punishment
+crimes_and_penances$`major punishment` <- crimes_and_penances$punishment %in% c('Prison','Faggot')
+
+# Visualisation
+panel.hist <- function(x, ...) {
+  usr = par("usr"); on.exit(par(usr))
+  par(usr = c(usr[1:2], 0, 1.5))
+  hist(x, freq = FALSE, add=TRUE, col = adjustcolor(4, .4),breaks=12) 
+  lines(density(x),col='red')
+}
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- (cor(x, y))
+  txt <- format(c(r, 0.123456789), digits = digits)[1]
+  txt <- paste0(prefix, txt)
+  text(0.5, 0.5, txt, cex = 1.25, font = 4)
+}
+
+jpeg(filename='corr_plot.jpeg',width=10,height=10,units='in',res=500)
+pairs(crimes_and_penances[,c('major punishment','PD1','PD2','witness','inculpations (log)')],
+      diag.panel=panel.hist,
+      upper.panel=panel.cor,
+      lower.panel=panel.smooth,
+      cex = 1.5, pch = 19, col = adjustcolor(4, .4), cex.labels = 1.75,font.labels = 2)
+dev.off()
+
+########################################################################################################################
+
+# LOGISTIC REGRESSION: MAJOR PENANCE AS A FUNCTION OF CRIME AND DEPOSING
+
+# MODEL 1
+model1 <- glm(`major punishment` ~ PD1 + PD2 + witness + `inculpations (log)`,
+              data=crimes_and_penances,family=binomial(link='logit'))
+summary(model1)
+
+# BOOSTRAPPING 
+library(boot);library(parallel)
+
+# function to return bootstrapped coefficients
+myLogitCoef <- function(data, indices, formula) {
+  d <- data[indices,]
+  fit <- glm(formula, data=d, family = binomial(link = "logit"))
+  return(coef(fit))
+}
+
+# MODEL 1
+cl<-makeCluster(4) # set up cluster of 4 CPU cores
+clusterExport(cl, 'myLogitCoef')
+
+set.seed(0708)
+model1.boot <- boot(data=crimes_and_penances, statistic=myLogitCoef, R=1000, 
+                  formula= `major punishment` ~ PD1 + PD2 + witness + `inculpations (log)`,
+                  parallel = 'snow', ncpus=4, cl=cl)
+stopCluster(cl)
+
+summary(model1.boot)
 
 ########################################################################################################################
