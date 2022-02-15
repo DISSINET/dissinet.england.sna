@@ -168,9 +168,14 @@ dev.off()
 # LOGISTIC REGRESSION: MAJOR PENANCE AS A FUNCTION OF CRIME AND DEPOSING
 
 # MODEL 1
-model1 <- glm(`major punishment` ~ PD1 + PD2 + witness + `inculpations (log)`,
+model1 <- glm(`major punishment` ~ PD1 + PD2 + witness,
               data=crimes_and_penances,family=binomial(link='logit'))
 summary(model1)
+
+# MODEL 2
+model2 <- glm(`major punishment` ~ PD1 + PD2 + witness + `inculpations (log)`,
+              data=crimes_and_penances,family=binomial(link='logit'))
+summary(model2)
 
 # BOOSTRAPPING 
 library(boot);library(parallel)
@@ -188,10 +193,22 @@ clusterExport(cl, 'myLogitCoef')
 
 set.seed(0708)
 model1.boot <- boot(data=crimes_and_penances, statistic=myLogitCoef, R=1000, 
-                  formula= `major punishment` ~ PD1 + PD2 + witness + `inculpations (log)`,
+                  formula= `major punishment` ~ PD1 + PD2 + witness,
                   parallel = 'snow', ncpus=4, cl=cl)
 stopCluster(cl)
 
 summary(model1.boot)
+
+# MODEL 2
+cl<-makeCluster(4) # set up cluster of 4 CPU cores
+clusterExport(cl, 'myLogitCoef')
+
+set.seed(0708)
+model2.boot <- boot(data=crimes_and_penances, statistic=myLogitCoef, R=1000, 
+                    formula= `major punishment` ~ PD1 + PD2 + witness + `inculpations (log)`,
+                    parallel = 'snow', ncpus=4, cl=cl)
+stopCluster(cl)
+
+summary(model2.boot)
 
 ########################################################################################################################
