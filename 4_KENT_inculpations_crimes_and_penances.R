@@ -10,7 +10,7 @@ load('Kent_data.RData')
 crimes_and_penances <- readxl::read_excel('Kent crime and punishment data.xlsx',sheet='Sheet1') # info on individuals
 
 # Required packages
-library(igraph);library(MASS);library(ggpubr);library(FactoMineR);library(factoextra)
+library(igraph);library(MASS);library(ggpubr);library(FactoMineR);library(factoextra);library(VGAM)
 
 ########################################################################################################################
 
@@ -116,27 +116,35 @@ crimes_and_penances$PD2 <- MCA_crimes$ind$coord[,2]
 
 ########################################################################################################################
 
-# ADDITION OF SEX, WITNESSES, AND AGAINST HOW MANY THEY DEPOSED
+# ADDITION OF SEX, WITNESSES, AGAINST HOW MANY THEY DEPOSED, AND HOW MANY DEPOSED AGAINST THEM
 crimes_and_penances$woman <- ifelse(persons[persons$id %in% crimes_and_penances$id,]$sex == 'f',1,0)
 table(crimes_and_penances$punishment,crimes_and_penances$woman) # punishment received by sex
 
 crimes_and_penances$witness <- persons[persons$id %in% crimes_and_penances$id,]$witness # 14 of the 15 witnesses
 table(crimes_and_penances$punishment,crimes_and_penances$witness) # punishment received by witness or not
 
-persons$inculpations <- rowSums(inculpations)
-crimes_and_penances$inculpations <- persons[persons$id %in% crimes_and_penances$id,]$inculpations 
-table(crimes_and_penances$punishment,crimes_and_penances$inculpations) 
+persons$inculpations_send <- rowSums(inculpations)
+crimes_and_penances$inculpations_send <- persons[persons$id %in% crimes_and_penances$id,]$inculpations_send
+table(crimes_and_penances$punishment,crimes_and_penances$inculpations_send) 
 # logarithm version
-crimes_and_penances$`inculpations (log)` <- log(crimes_and_penances$inculpations + 1)
+crimes_and_penances$`inculpations sent (log)` <- log(crimes_and_penances$inculpations_send + 1)
+
+persons$inculpations_rec <- colSums(inculpations)
+crimes_and_penances$inculpations_rec <- persons[persons$id %in% crimes_and_penances$id,]$inculpations_rec
+table(crimes_and_penances$punishment,crimes_and_penances$inculpations_rec) 
+# logarithm version
+crimes_and_penances$`inculpations received (log)` <- log(crimes_and_penances$inculpations_rec + 1)
 
 ########################################################################################################################
 
 # BIVARIATE DESCRIPTION
-
 # change reference category
 crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Minor','Faggot','Prison'))
-# simplify to major vs minor punishment
-crimes_and_penances$`major punishment` <- crimes_and_penances$punishment %in% c('Prison','Faggot')
+
+# BIVARIATE: CRIMES by PD1, WOMAN, WITNESS, ETC.
+LDA_penance <- lda(punishment ~  PD1 + woman + witness + `inculpations sent (log)` + `inculpations received (log)`,
+                   data=crimes_and_penances)
+(penances_mean <- round(LDA_penance$means*100,1))
 
 # Visualisation
 panel.hist <- function(x, ...) {
@@ -155,8 +163,8 @@ panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
   text(0.5, 0.5, txt, cex = 1.25, font = 4)
 }
 
-jpeg(filename='corr_plot.jpeg',width=10,height=10,units='in',res=500)
-pairs(crimes_and_penances[,c('major punishment','PD1','PD2','witness','inculpations (log)')],
+jpeg(filename='corr_plot.jpeg',width=18,height=10,units='in',res=500)
+pairs(crimes_and_penances[,c('punishment','PD1','PD2','witness','inculpations sent (log)','inculpations received (log)')],
       diag.panel=panel.hist,
       upper.panel=panel.cor,
       lower.panel=panel.smooth,
@@ -165,50 +173,23 @@ dev.off()
 
 ########################################################################################################################
 
-# LOGISTIC REGRESSION: MAJOR PENANCE AS A FUNCTION OF CRIME AND DEPOSING
+#  LOGISTIC REGRESSION FOR NOMINAL RESPONSES (MULTINOMIAL)
+crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Faggot','Prison','Minor'))
 
-# MODEL 1
-model1 <- glm(`major punishment` ~ PD1 + PD2 + witness,
-              data=crimes_and_penances,family=binomial(link='logit'))
+model1 <- vglm(punishment ~ PD1 + woman + witness,
+          data=crimes_and_penances,family=multinomial)
 summary(model1)
 
-# MODEL 2
-model2 <- glm(`major punishment` ~ PD1 + PD2 + witness + `inculpations (log)`,
-              data=crimes_and_penances,family=binomial(link='logit'))
+model2 <- vglm(punishment ~ PD1 + woman + witness + `inculpations sent (log)`,
+               data=crimes_and_penances,family=multinomial)
 summary(model2)
 
-# BOOSTRAPPING 
-library(boot);library(parallel)
+model3 <- vglm(punishment ~ PD1 + woman + witness + `inculpations received (log)`,
+               data=crimes_and_penances,family=multinomial)
+summary(model3)
 
-# function to return bootstrapped coefficients
-myLogitCoef <- function(data, indices, formula) {
-  d <- data[indices,]
-  fit <- glm(formula, data=d, family = binomial(link = "logit"))
-  return(coef(fit))
-}
-
-# MODEL 1
-cl<-makeCluster(4) # set up cluster of 4 CPU cores
-clusterExport(cl, 'myLogitCoef')
-
-set.seed(0708)
-model1.boot <- boot(data=crimes_and_penances, statistic=myLogitCoef, R=1000, 
-                  formula= `major punishment` ~ PD1 + PD2 + witness,
-                  parallel = 'snow', ncpus=4, cl=cl)
-stopCluster(cl)
-
-summary(model1.boot)
-
-# MODEL 2
-cl<-makeCluster(4) # set up cluster of 4 CPU cores
-clusterExport(cl, 'myLogitCoef')
-
-set.seed(0708)
-model2.boot <- boot(data=crimes_and_penances, statistic=myLogitCoef, R=1000, 
-                    formula= `major punishment` ~ PD1 + PD2 + witness + `inculpations (log)`,
-                    parallel = 'snow', ncpus=4, cl=cl)
-stopCluster(cl)
-
-summary(model2.boot)
+model4 <- vglm(punishment ~ PD1 + woman + witness + `inculpations sent (log)` + `inculpations received (log)`,
+               data=crimes_and_penances,family=multinomial)
+summary(model4)
 
 ########################################################################################################################
