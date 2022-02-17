@@ -173,6 +173,13 @@ dev.off()
 
 ########################################################################################################################
 
+# ALL VARIABLES ARE STANDARDISED
+crimes_and_penances$PD1 <- scale(crimes_and_penances$PD1,center=TRUE,scale=TRUE)
+crimes_and_penances$woman <- scale(crimes_and_penances$woman,center=TRUE,scale=TRUE)
+crimes_and_penances$witness <- scale(crimes_and_penances$witness,center=TRUE,scale=TRUE)
+crimes_and_penances$`inculpations sent (log)` <- scale(crimes_and_penances$`inculpations sent (log)`,center=TRUE,scale=TRUE)
+crimes_and_penances$`inculpations received (log)` <- scale(crimes_and_penances$`inculpations received (log)`,center=TRUE,scale=TRUE)
+
 #  LOGISTIC REGRESSION FOR NOMINAL RESPONSES (MULTINOMIAL)
 crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Faggot','Prison','Minor'))
 
