@@ -183,19 +183,22 @@ crimes_and_penances$`inculpations received (log)` <- scale(crimes_and_penances$`
 #  LOGISTIC REGRESSION FOR NOMINAL RESPONSES (MULTINOMIAL)
 crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Faggot','Prison','Minor'))
 
-model1 <- vglm(punishment ~ PD1 + woman + witness,
+# Punishment as a function of charges
+model1 <- vglm(punishment ~ PD1 + PD2,
           data=crimes_and_penances,family=multinomial)
 summary(model1)
 
-model2 <- vglm(punishment ~ PD1 + woman + witness + `inculpations sent (log)`,
+# Punishment as a function of charges + individual attributes (being a witness and sex)
+model2 <- vglm(punishment ~ PD1 + PD2 + woman + witness,
                data=crimes_and_penances,family=multinomial)
 summary(model2)
 
-model3 <- vglm(punishment ~ PD1 + woman + witness + `inculpations received (log)`,
+# Punishment as a function of chargers + individual attributes + inculpations
+model3 <- vglm(punishment ~ PD1 + PD2 + woman + witness + `inculpations received (log)`,
                data=crimes_and_penances,family=multinomial)
 summary(model3)
 
-model4 <- vglm(punishment ~ PD1 + woman + witness + `inculpations sent (log)` + `inculpations received (log)`,
+model4 <- vglm(punishment ~ PD1 + PD2 + woman + witness + `inculpations received (log)` + `inculpations sent (log)`,
                data=crimes_and_penances,family=multinomial)
 summary(model4)
 
