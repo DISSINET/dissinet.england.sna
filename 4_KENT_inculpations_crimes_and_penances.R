@@ -203,3 +203,30 @@ model4 <- vglm(punishment ~ PD1 + PD2 + woman + witness + `inculpations received
 summary(model4)
 
 ########################################################################################################################
+
+# VISUALSIATION OF RESULTS
+model3_vis <- data.frame(
+  parameter = c('Intercept (faggot)','Intercept (prison)','Charges PD1 (faggot)','Charges PD1 (prison)','Charges PD2 (faggot)',
+                'Charges PD2 (prison)','Woman (faggot)','Woman (prison)','Witness (faggot)','Witness (prison)',
+                'Inculpations received (log) (faggot)','Inculpations received (log) (prison)'),
+  estimate = as.numeric(coefficients(model3)),
+  lower = as.numeric(confint(model3,level=.90)[,1]),
+  upper = as.numeric(confint(model3,level=.90)[,2])
+)
+
+# Order the y axis
+model3_vis$parameter <- factor(model3_vis$parameter,
+                               level = c('Inculpations received (log) (prison)','Inculpations received (log) (faggot)',
+                                         'Witness (prison)','Witness (faggot)','Woman (prison)','Woman (faggot)',
+                                         'Charges PD2 (prison)','Charges PD2 (faggot)','Charges PD1 (prison)','Charges PD1 (faggot)',
+                                         'Intercept (prison)','Intercept (faggot)'))
+
+jpeg(filename='model3.jpeg',width=9,height=7,units='in',res=500)
+ggplot(data=model3_vis, aes(x=parameter, y=estimate, ymin=lower, ymax=upper)) +
+  geom_hline(yintercept= 0, lty=2,colour='red') +
+  geom_pointrange(position=position_dodge(width = 0.5)) +
+  coord_flip() +
+  xlab("") + ylab("Estimate (90% CI)") +
+  theme_bw() +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=12))
+dev.off()
