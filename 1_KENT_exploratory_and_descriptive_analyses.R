@@ -288,35 +288,43 @@ alltogether[,,3] <- kinship
 alltogether <- apply(alltogether,c(1,2),max,na.rm=TRUE)
 
 alltogether <- graph_from_adjacency_matrix(alltogether,mode='undirected')
-set.seed(1234)
-lyt <- layout_with_fr(alltogether)
+set.seed(1342)
+lyt <- layout_nicely(alltogether)
 
-jpeg(filename='Kinship ties and inculpations.jpeg',width=18,height=18,units='in',res=1000)
+jpeg(filename='Kinship ties and inculpations.jpeg',width=15,height=8,units='in',res=1000)
 par(mfrow=c(1,2))
 plot(igraph_objs$kinship,
+     vertex.color = ifelse(V(igraph_objs$inculpations)$sex == 'Man', "goldenrod2","springgreen3"),
      vertex.size = 5,
      vertex.label= persons[!is.na(persons$deponent) & persons$deponent == TRUE,]$label,
-     vertex.label.cex = .4,
+     vertex.label.cex = .55,
      vertex.label.color = 'black',
-     edge.color = "black",
-     edge.width = 1,
+     edge.color = grey(0.5),
+     edge.width = 2,
      layout = lyt,
      mark.groups = cluster_louvain(igraph_objs$colocation),
      main = "Kinship ties and same village (groups)")
+legend("bottomright",pch=21,
+       legend=c('Woman','Man'),
+       pt.bg=c('springgreen3','goldenrod2'),
+       pt.cex=1, cex=1, bty="o", ncol=1)
+
 plot(igraph_objs$inculpations,
-     vertex.color = ifelse(V(igraph_objs$inculpations)$sentenced == 'Yes', "firebrick3",
-                           ifelse(V(igraph_objs$inculpations)$witness == 'Yes',"dodgerblue","grey")),
+     vertex.color = ifelse(V(igraph_objs$inculpations)$sentenced == 'Yes', "firebrick1",
+                           ifelse(V(igraph_objs$inculpations)$witness == 'Yes',"skyblue","grey")),
      vertex.size = 5,
      vertex.label= persons[!is.na(persons$deponent) & persons$deponent == TRUE,]$label,
-     vertex.label.cex = .4,
+     vertex.label.cex = .55,
      vertex.label.color = 'black',
-     edge.color = "darkred",
-     edge.width = 1,
-     edge.arrow.size = 0.5,
+     edge.color = "tomato",
+     edge.width = 2,
+     edge.arrow.size = 0.35,
      layout = lyt,
      main = "Inculpations")
-legend("bottomright",bty="o",legend=c('Under trial','Deponents','Other suspects'),
-       fill=c('firebrick3','dodgerblue','grey'))
+legend("bottomright",pch=21,
+       legend=c('Impenitent heretic','Witness','Other suspect'),
+       pt.bg=c('firebrick1','skyblue','grey'),
+       pt.cex=1, cex=1, bty="o", ncol=1)
 dev.off()
 
 ########################################################################################################################

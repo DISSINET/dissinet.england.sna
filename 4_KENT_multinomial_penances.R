@@ -22,6 +22,9 @@ crimes_and_penances <- crimes_and_penances[-unknown_crime,]
 crimes_and_penances <- crimes_and_penances[crimes_and_penances$`punishment: execution (= handing over to the secular arm)` != 1,]
 # This leaves us with 43 subjects in total
 
+# Let's remove those who did not abjure heresy, or followed a different procedure
+crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% c('Simon Piers','Joan Bukherst','John Dodde'),]
+
 ########################################################################################################################
 
 # PENANCES / PUNISHMENTS
@@ -61,11 +64,14 @@ crimes_and_penances <- crimes_and_penances[,-c(6,11,13)]
 names(crimes_and_penances) <- c('id','Eucharist','Baptism','Confirmation','Confession','Priesthood','Matrimony','Extreme unction',
                                 'Pilgrimages','Images','Praying to saints','Blessing meal','Christology','Concealment','punishment')
 
+# Let's remove concealment which is constant, and Christology which is collinear
+crimes_and_penances <- crimes_and_penances[,names(crimes_and_penances) %!in% c('Concealment','Christology')]
+
 ########################################################################################################################
 
 # BIVARIATE: CRIMES AND PENANCES 
 LDA_penance <- lda(punishment ~ Eucharist + Baptism + Confirmation + Confession + Priesthood + Matrimony + 
-                     `Extreme unction` + Pilgrimages + Images + `Praying to saints` + `Blessing meal` + Christology + Concealment,
+                     `Extreme unction` + Pilgrimages + Images + `Praying to saints` + `Blessing meal`,
                    data=crimes_and_penances)
 
 penances_mean <- round(LDA_penance$means[c(3,1,2),]*100,1)
@@ -80,7 +86,7 @@ dev.off()
 ########################################################################################################################
 
 # MULTIPLE CORRESPONDENCE ANALYSIS
-crimes <- as.data.frame(crimes_and_penances[,2:14]) 
+crimes <- as.data.frame(crimes_and_penances[,2:12]) 
 rownames(crimes) <- persons[persons$id %in% crimes_and_penances$id,]$label
 # Define as categorical
 for(i in 1:ncol(crimes)){
@@ -185,21 +191,21 @@ crimes_and_penances$`inculpations received (log)` <- scale(crimes_and_penances$`
 crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Faggot','Prison','Minor'))
 
 # Punishment as a function of charges
-model1 <- vglm(punishment ~ PD1,
+model1 <- vglm(punishment ~ PD1 + PD2,
           data=crimes_and_penances,family=multinomial)
 summary(model1)
 
 # Punishment as a function of charges + individual attributes (being a witness and sex)
-model2 <- vglm(punishment ~ PD1 + woman + witness,
+model2 <- vglm(punishment ~ PD1 + PD2 + woman + witness,
                data=crimes_and_penances,family=multinomial)
 summary(model2)
 
 # Punishment as a function of chargers + individual attributes + inculpations
-model3 <- vglm(punishment ~ PD1 + woman + witness + `inculpations received (log)`,
+model3 <- vglm(punishment ~ PD1 + PD2 + woman + witness + `inculpations received (log)`,
                data=crimes_and_penances,family=multinomial)
 summary(model3)
 
-model4 <- vglm(punishment ~ PD1 + woman + witness + `inculpations sent (log)`,
+model4 <- vglm(punishment ~ PD1 + PD2 + woman + witness + `inculpations sent (log)`,
                data=crimes_and_penances,family=multinomial)
 summary(model4)
 
@@ -207,7 +213,7 @@ summary(model4)
 
 # VISUALSIATION OF RESULTS
 model3_vis <- data.frame(
-  parameter = c('Intercept (faggot)','Intercept (prison)','Charges PD1 (faggot)','Charges PD1 (prison)',
+  parameter = c('Intercept (faggot)','Intercept (prison)','Charges PD1 (faggot)','Charges PD1 (prison)','Charges PD2 (faggot)','Charges PD2 (prison)',
                 'Woman (faggot)','Woman (prison)','Witness (faggot)','Witness (prison)',
                 'Inculpations received (log) (faggot)','Inculpations received (log) (prison)'),
   estimate = as.numeric(coefficients(model3)),
@@ -219,7 +225,7 @@ model3_vis <- data.frame(
 model3_vis$parameter <- factor(model3_vis$parameter,
                                level = c('Inculpations received (log) (prison)','Inculpations received (log) (faggot)',
                                          'Witness (prison)','Witness (faggot)','Woman (prison)','Woman (faggot)',
-                                         'Charges PD1 (prison)','Charges PD1 (faggot)',
+                                         'Charges PD2 (prison)','Charges PD2 (faggot)','Charges PD1 (prison)','Charges PD1 (faggot)',
                                          'Intercept (prison)','Intercept (faggot)'))
 
 jpeg(filename='Multinomial results.jpeg',width=9,height=7,units='in',res=500)
