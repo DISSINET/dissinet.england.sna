@@ -135,14 +135,10 @@ persons <- persons[!is.na(persons$deponent) & persons$deponent == 1,]
 persons$inculpations_send <- rowSums(inculpations,na.rm=TRUE)
 crimes_and_penances$inculpations_send <- persons[persons$id %in% crimes_and_penances$id,]$inculpations_send
 table(crimes_and_penances$punishment,crimes_and_penances$inculpations_send) 
-# logarithm version
-crimes_and_penances$`inculpations sent (log)` <- log(crimes_and_penances$inculpations_send + 1)
 
 persons$inculpations_rec <- colSums(inculpations,na.rm=TRUE)
 crimes_and_penances$inculpations_rec <- persons[persons$id %in% crimes_and_penances$id,]$inculpations_rec
 table(crimes_and_penances$punishment,crimes_and_penances$inculpations_rec) 
-# logarithm version
-crimes_and_penances$`inculpations received (log)` <- log(crimes_and_penances$inculpations_rec + 1)
 
 ########################################################################################################################
 
@@ -151,7 +147,7 @@ crimes_and_penances$`inculpations received (log)` <- log(crimes_and_penances$inc
 crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Minor','Faggot','Prison'))
 
 # BIVARIATE: CRIMES by PD1, WOMAN, WITNESS, ETC.
-LDA_penance <- lda(punishment ~  PD1 + woman + witness + `inculpations sent (log)` + `inculpations received (log)`,
+LDA_penance <- lda(punishment ~  PD1 + PD2 + woman + witness + inculpations_send + inculpations_rec,
                    data=crimes_and_penances)
 (penances_mean <- round(LDA_penance$means*100,1))
 
@@ -172,7 +168,7 @@ panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
   text(0.5, 0.5, txt, cex = 1.25, font = 4)
 }
 
-pairs(crimes_and_penances[,c('punishment','PD1','PD2','witness','inculpations sent (log)','inculpations received (log)')],
+pairs(crimes_and_penances[,c('punishment','PD1','PD2','witness','inculpations_send','inculpations_rec')],
       diag.panel=panel.hist,
       upper.panel=panel.cor,
       lower.panel=panel.smooth,
@@ -182,10 +178,11 @@ pairs(crimes_and_penances[,c('punishment','PD1','PD2','witness','inculpations se
 
 # ALL VARIABLES ARE STANDARDISED
 crimes_and_penances$PD1 <- scale(crimes_and_penances$PD1,center=TRUE,scale=TRUE)
+crimes_and_penances$PD2 <- scale(crimes_and_penances$PD2,center=TRUE,scale=TRUE)
 crimes_and_penances$woman <- scale(crimes_and_penances$woman,center=TRUE,scale=TRUE)
 crimes_and_penances$witness <- scale(crimes_and_penances$witness,center=TRUE,scale=TRUE)
-crimes_and_penances$`inculpations sent (log)` <- scale(crimes_and_penances$`inculpations sent (log)`,center=TRUE,scale=TRUE)
-crimes_and_penances$`inculpations received (log)` <- scale(crimes_and_penances$`inculpations received (log)`,center=TRUE,scale=TRUE)
+crimes_and_penances$inculpations_send <- scale(crimes_and_penances$inculpations_send,center=TRUE,scale=TRUE)
+crimes_and_penances$inculpations_rec <- scale(crimes_and_penances$inculpations_rec,center=TRUE,scale=TRUE)
 
 #  LOGISTIC REGRESSION FOR NOMINAL RESPONSES (MULTINOMIAL)
 crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Faggot','Prison','Minor'))
@@ -201,11 +198,11 @@ model2 <- vglm(punishment ~ PD1 + PD2 + woman + witness,
 summary(model2)
 
 # Punishment as a function of chargers + individual attributes + inculpations
-model3 <- vglm(punishment ~ PD1 + PD2 + woman + witness + `inculpations received (log)`,
+model3 <- vglm(punishment ~ PD1 + PD2 + woman + witness + inculpations_rec,
                data=crimes_and_penances,family=multinomial)
 summary(model3)
 
-model4 <- vglm(punishment ~ PD1 + PD2 + woman + witness + `inculpations sent (log)`,
+model4 <- vglm(punishment ~ PD1 + PD2 + woman + witness + inculpations_send,
                data=crimes_and_penances,family=multinomial)
 summary(model4)
 
@@ -215,7 +212,7 @@ summary(model4)
 model3_vis <- data.frame(
   parameter = c('Intercept (faggot)','Intercept (prison)','Charges PD1 (faggot)','Charges PD1 (prison)','Charges PD2 (faggot)','Charges PD2 (prison)',
                 'Woman (faggot)','Woman (prison)','Witness (faggot)','Witness (prison)',
-                'Inculpations received (log) (faggot)','Inculpations received (log) (prison)'),
+                'Inculpations received (faggot)','Inculpations received (prison)'),
   estimate = as.numeric(coefficients(model3)),
   lower = as.numeric(confint(model3,level=.90)[,1]),
   upper = as.numeric(confint(model3,level=.90)[,2])
@@ -223,7 +220,7 @@ model3_vis <- data.frame(
 
 # Order the y axis
 model3_vis$parameter <- factor(model3_vis$parameter,
-                               level = c('Inculpations received (log) (prison)','Inculpations received (log) (faggot)',
+                               level = c('Inculpations received (prison)','Inculpations received (faggot)',
                                          'Witness (prison)','Witness (faggot)','Woman (prison)','Woman (faggot)',
                                          'Charges PD2 (prison)','Charges PD2 (faggot)','Charges PD1 (prison)','Charges PD1 (faggot)',
                                          'Intercept (prison)','Intercept (faggot)'))
