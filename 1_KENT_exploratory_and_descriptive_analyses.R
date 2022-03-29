@@ -9,6 +9,11 @@ rm(list=ls())
 ties <- readxl::read_excel('Kent Coding AKADB2+edges 2.1.xlsx',sheet='edges') # info on ties
 persons <- readxl::read_excel('Kent Persons.xlsx',sheet='Persons') # info on individuals
 persons <- persons[!(persons$label == 'William Warham'),] # Let's remove the Inquisitor out of the sample
+# Info on kinship ties
+kinship <- readxl::read_excel('Kent Kinship.xlsx',sheet='Kinship All people')
+kinship <- as.data.frame(kinship)
+rownames(kinship) <- kinship[,1]
+kinship <- kinship[,-1]
 
 # Required packages
 library(sna);library(igraph);library(ggplot2);library(isnar)
@@ -148,16 +153,7 @@ rownames(colocation) <- colnames(colocation) <- persons$id
 diag(colocation) <- 0
 
 # Kinship
-persons$kinship <- persons$family_name
-persons$kinship[persons$kinship == '(unknown)'] <- NA
-persons$kinship[!is.na(persons$kinship) & persons$kinship == 'Raynold'] <- 'Reignold' # different spelling obut same surname
-unique(persons$kinship) # 41 different family names
-summary(as.factor(persons$kinship)) # 18 family names at least shared by two subjects
-# Since Agnes Ive is sister of Robert Hilles (see Tanner, p. xviii), I related these two families
-persons$kinship[!is.na(persons$kinship) & persons$kinship == 'Ive'] <- 'Hilles' 
-kinship <- 1*outer(persons$kinship, persons$kinship,'==')
-rownames(kinship) <- colnames(kinship) <- persons$id
-diag(kinship) <- 0
+kinship <- as.matrix(kinship)
 
 # Number of colocation and kinship ties
 sum(colocation,na.rm = TRUE)/2 # 151
@@ -165,9 +161,9 @@ sum(kinship,na.rm = TRUE)/2 # 57
 
 ########################################################################################################################
 
-# ENLARGE NETWORK, INCULPATIONS, AND ILLICIT SPEECH TO 78 SUBJECTS
+# ENLARGE NETWORK, INCULPATIONS, KINSHIP, AND ILLICIT SPEECH TO 78 SUBJECTS
 
-mtx <- kinship*0
+mtx <- colocation*0
 mtx[is.na(mtx)] <- 0
 
 for(i in rownames(network)){
@@ -189,6 +185,16 @@ for(i in rownames(inculpations)){
 inculpations <- mtx # inculpations
 # Those whose deposition is missing, to NA
 inculpations[is.na(rowSums(inculpations)) | rowSums(inculpations) == 0,] <- NA
+
+mtx <- mtx*0
+
+for(i in rownames(kinship)){
+  for(j in colnames(kinship)){
+    mtx[i,j] <- kinship[i,j]
+  }
+}
+
+kinship <- mtx # kinship
 
 mtx <- mtx*0
 
@@ -224,9 +230,7 @@ for(i in seq_along(ntw_objs)){
   network::set.vertex.attribute(ntw_objs[[i]],'defendant',ifelse(!is.na(persons$deponent) & persons$deponent==1,'Yes','No'))
   network::set.vertex.attribute(ntw_objs[[i]],'witness',ifelse(persons$witness==1,'Yes','No'))
   network::set.vertex.attribute(ntw_objs[[i]],'sentenced',ifelse(persons$defendant==1,'Yes','No'))
-  network::set.vertex.attribute(ntw_objs[[i]],'kinship',persons$kinship)
   network::set.vertex.attribute(ntw_objs[[i]],'colocation',persons$origin_or_residence)
-  
 }
 
 # CREATION OF 'IGRAPH' OBJECTS
@@ -246,7 +250,6 @@ for(i in seq_along(igraph_objs)){
   V(igraph_objs[[i]])$defendant <- ifelse(!is.na(persons$deponent) & persons$deponent==1,'Yes','No')
   V(igraph_objs[[i]])$witness <- ifelse(persons$witness==1,'Yes','No')
   V(igraph_objs[[i]])$sentenced <- ifelse(persons$defendant==1,'Yes','No')
-  V(igraph_objs[[i]])$kinship <- persons$kinship
   V(igraph_objs[[i]])$colocation <- persons$origin_or_residence
 }
 
@@ -331,10 +334,9 @@ dev.off()
 
 # DESCRIPTIVE OF THE NETWORKS
 
-ntw_descript <- as.data.frame(matrix(NA,nrow=14,ncol=5,
+ntw_descript <- as.data.frame(matrix(NA,nrow=13,ncol=5,
                                      dimnames = list(c('N','ties','den','ave deg','max outdeg','max indeg','recip',
-                                                       'trans','iso','deg centr','EI (sex)','EI (family name)',
-                                                       'EI (village)','EI (deponent)'),
+                                                       'trans','iso','deg centr','EI (sex)','EI (village)','EI (deponent)'),
                                                      c('network','inculpation','illicit speech','colocation','kinship'))))
 
 for(i in seq_along(ntw_objs)){
@@ -349,9 +351,8 @@ for(i in seq_along(ntw_objs)){
   ntw_descript[9,i] <- sum(components(igraph_objs[[i]])$csize == 1)
   ntw_descript[10,i] <- centr_degree(igraph_objs[[i]],mode='total')$centralization
   ntw_descript[11,i] <- ei(igraph_objs[[i]],'sex')
-  ntw_descript[12,i] <- ei(igraph_objs[[i]],'kinship')
-  ntw_descript[13,i] <- ei(igraph_objs[[i]],'colocation')
-  ntw_descript[14,i] <- ei(igraph_objs[[i]],'witness')
+  ntw_descript[12,i] <- ei(igraph_objs[[i]],'colocation')
+  ntw_descript[13,i] <- ei(igraph_objs[[i]],'witness')
 }
 
 round(ntw_descript[,c('inculpation','kinship','colocation')],2)
