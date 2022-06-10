@@ -1,7 +1,7 @@
 ## LOLLARDS DATA
 ## KENT - BERGM (2)
 ## R script written by Jose Luis Estevez (Masaryk University)
-## Date: March 20th 2022
+## Date: June 9th 2022
 ########################################################################################################################
 
 # LOADING
@@ -14,27 +14,28 @@ library(sna);library(igraph);library(Bergm)
 ########################################################################################################################
 
 # BERGM
-# Removal of NAs in kinship and colocation
-colocation[is.na(colocation)] <- 0
-kinship[is.na(kinship)] <- 0
+# Removal of NAs in kinship_mtx and same_settlement_mtx
+same_settlement_mtx[is.na(same_settlement_mtx)] <- 0
+kinship_mtx[is.na(kinship_mtx)] <- 0
 
-summary(ntw_objs$inculpations ~ edges + mutual +
+summary(naming_ntw ~ edges + mutual +
+          gwodegree(decay=log(2),fixed=TRUE)+gwidegree(decay=log(2),fixed=TRUE)+
           dgwdsp(decay=log(2),fixed=TRUE,type='OTP') +
           dgwesp(decay=log(2),fixed=TRUE,type='OTP') +
-          edgecov(kinship) + edgecov(colocation) +
+          edgecov(kinship_mtx) + edgecov(same_settlement_mtx) +
           nodeofactor('sex') + nodeifactor('sex') + nodematch('sex') +
-          nodeifactor('witness') +
-          nodeifactor('sentenced'))
+          nodeofactor('witness') + nodeifactor('witness') +
+          nodeofactor('impenitent') + nodeifactor('impenitent'))
 
 # MODELLING
 set.seed(0708)
-model <- bergmM(ntw_objs$inculpations ~ edges + mutual + # bergmM to handle missing data
+model <- bergmM(naming_ntw ~ edges + mutual + 
                   dgwdsp(decay=log(2),fixed=TRUE,type='OTP') +
                   dgwesp(decay=log(2),fixed=TRUE,type='OTP') +
-                  edgecov(kinship) + edgecov(colocation) +
+                  edgecov(kinship_mtx) + edgecov(same_settlement_mtx) +
                   nodeofactor('sex') + nodeifactor('sex') + nodematch('sex') +
-                   nodeifactor('witness') + nodeifactor('sentenced'),
-                burn.in=1000,main.iters=5000,gamma=0.30,
+                  nodeifactor('witness') + nodeifactor('impenitent'),
+                burn.in=1000,main.iters=5000,gamma=0.3,
                 prior.mean=c(rep(0,11)),prior.sigma=diag(5,11))
 summary(model) 
 
@@ -49,7 +50,7 @@ modelresults <- data.frame(coeff=apply(posteriors,2,mean))
 
 # Name of effects estimated
 rownames(modelresults) <- c('edges','mutual','gwdsp','gwesp','kinship','same setting',
-                             'female (out)','female (in)','same sex','other deponent (in)','under trial (in)')
+                             'female (out)','female (in)','same sex','witness (in)','impenitent heretic (in)')
 
 # Extraction of Bayesian p values
 for(i in 1:nrow(modelresults)){

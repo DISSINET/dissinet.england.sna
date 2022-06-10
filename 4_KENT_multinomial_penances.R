@@ -1,16 +1,15 @@
 ## LOLLARDS DATA
 ## KENT - INCULPATIONS, CRIMES, AND PENANCES (4)
 ## R script written by Jose Luis Estevez (Masaryk University)
-## Date: March 20th 2022
+## Date: June 9th 2022
 ########################################################################################################################
+
+# Required packages
+library(igraph);library(MASS);library(ggpubr);library(FactoMineR);library(factoextra);library(psych);library(VGAM)
 
 # LOADING
 rm(list=ls())
 load('Kent_data.RData')
-crimes_and_penances <- readxl::read_excel('Kent crime and punishment data.xlsx',sheet='Sheet1') # info on individuals
-
-# Required packages
-library(igraph);library(MASS);library(ggpubr);library(FactoMineR);library(factoextra);library(VGAM)
 
 ########################################################################################################################
 
@@ -77,10 +76,10 @@ LDA_penance <- lda(punishment ~ Eucharist + Baptism + Confirmation + Confession 
 penances_mean <- round(LDA_penance$means[c(3,1,2),]*100,1)
 
 # Visualisation
-jpeg(filename='Crimes_penances.jpeg',width=8,height=5.5,units='in',res=500)
-ggballoonplot(penances_mean,fill='value',show.label = FALSE) +
-  gradient_fill(c("red", "gold", "forestgreen")) + 
-  labs(fill='Frequency',size='Frequency') 
+jpeg(filename='Charges and penances.jpeg',width=8,height=5.5,units='in',res=1000)
+ggballoonplot(penances_mean,show.label = TRUE,fill='value',size=12) +
+  gradient_fill(c("royalblue", "white", "red")) +
+  labs(fill='Frequency (%)') 
 dev.off()
 
 ########################################################################################################################
@@ -112,7 +111,7 @@ p4 <- fviz_contrib(MCA_crimes,choice="var",axes=2,top=10) # Contributions of row
 
 p5 <- fviz_mca_biplot(MCA_crimes,axes=1:2,repel = TRUE,col.var='royalblue',col.ind='tomato')
 
-jpeg(filename='mca_crimes.jpeg',width=15,height=12,units='in',res=500)
+jpeg(filename='Multiple correspondence analysis outcome.jpeg',width=15,height=12,units='in',res=1000)
 ggarrange(ggarrange(p1,p3,p4,nrow=3,labels=c('A','C','D')),ggarrange(p2,p5,nrow=2,labels=c('B','E')),
           ncol=2,widths=c(.75,1))
 dev.off()
@@ -123,60 +122,49 @@ crimes_and_penances$PD2 <- MCA_crimes$ind$coord[,2]
 ########################################################################################################################
 
 # ADDITION OF SEX, WITNESSES, AGAINST HOW MANY THEY DEPOSED, AND HOW MANY DEPOSED AGAINST THEM
-crimes_and_penances$woman <- ifelse(persons[persons$id %in% crimes_and_penances$id,]$sex == 'f',1,0)
-table(crimes_and_penances$punishment,crimes_and_penances$woman) # punishment received by sex
 
-crimes_and_penances$witness <- persons[persons$id %in% crimes_and_penances$id,]$witness # 14 of the 15 witnesses
+# Extraction of number of inculpations sent and received
+defendants_att$inculpations_send <- rowSums(naming_mtx,na.rm = TRUE)
+defendants_att$inculpations_rec <- colSums(naming_mtx,na.rm = TRUE)
+
+# Merge crimes and punishment with the rest of the data
+crimes_and_penances <- merge(crimes_and_penances,defendants_att,all.x = TRUE)
+
+# Some bivariate tables
+table(crimes_and_penances$punishment,crimes_and_penances$inculpations_rec) # punishment received by incriminations received
+table(crimes_and_penances$punishment,crimes_and_penances$inculpations_send) # punishment received by incriminations sent
 table(crimes_and_penances$punishment,crimes_and_penances$witness) # punishment received by witness or not
-
-# Let's reduced the sample to the 53
-persons <- persons[!is.na(persons$deponent) & persons$deponent == 1,]
-
-persons$inculpations_send <- rowSums(inculpations,na.rm=TRUE)
-crimes_and_penances$inculpations_send <- persons[persons$id %in% crimes_and_penances$id,]$inculpations_send
-table(crimes_and_penances$punishment,crimes_and_penances$inculpations_send) 
-
-persons$inculpations_rec <- colSums(inculpations,na.rm=TRUE)
-crimes_and_penances$inculpations_rec <- persons[persons$id %in% crimes_and_penances$id,]$inculpations_rec
-table(crimes_and_penances$punishment,crimes_and_penances$inculpations_rec) 
+table(crimes_and_penances$punishment,crimes_and_penances$sex) # punishment received by sex
 
 ########################################################################################################################
 
 # BIVARIATE DESCRIPTION
 # change reference category
 crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Minor','Faggot','Prison'))
+crimes_and_penances$woman <- ifelse(crimes_and_penances$sex == 'f',1,0)
 
 # BIVARIATE: CRIMES by PD1, WOMAN, WITNESS, ETC.
-LDA_penance <- lda(punishment ~  PD1 + PD2 + woman + witness + inculpations_send + inculpations_rec,
+LDA_penance <- lda(punishment ~  PD1 + PD2 + sex + witness + inculpations_send + inculpations_rec,
                    data=crimes_and_penances)
 (penances_mean <- round(LDA_penance$means*100,1))
 
 # Visualisation
-panel.hist <- function(x, ...) {
-  usr = par("usr"); on.exit(par(usr))
-  par(usr = c(usr[1:2], 0, 1.5))
-  hist(x, freq = FALSE, add=TRUE, col = adjustcolor(4, .4),breaks=12) 
-  lines(density(x),col='red')
-}
-panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
-{
-  usr <- par("usr"); on.exit(par(usr))
-  par(usr = c(0, 1, 0, 1))
-  r <- (cor(x, y))
-  txt <- format(c(r, 0.123456789), digits = digits)[1]
-  txt <- paste0(prefix, txt)
-  text(0.5, 0.5, txt, cex = 1.25, font = 4)
-}
+jpeg(filename='Correlations among variables.jpeg',width=12,height=12,units='in',res=1000)
+forplot <- crimes_and_penances[,c('punishment','inculpations_rec','inculpations_send','witness','woman','PD1','PD2')]
+names(forplot) <- c('Penance\nreceived','Times\nnamed','Names\ngiven','Witness','Woman','Charges\n(PD1)','Charges\n(PD2)')
 
-pairs(crimes_and_penances[,c('punishment','PD1','PD2','witness','inculpations_send','inculpations_rec')],
-      diag.panel=panel.hist,
-      upper.panel=panel.cor,
-      lower.panel=panel.smooth,
-      cex = 1.5, pch = 19, col = adjustcolor(4, .4), cex.labels = 1.75,font.labels = 2)
+pairs.panels(forplot,
+             method = "pearson",stars = TRUE,
+             lm=TRUE,ci=TRUE,ellipses=FALSE,
+             pch = 21,jiggle=TRUE,factor=.15,hist.col = 'skyblue',scale=FALSE)
+dev.off()
 
 ########################################################################################################################
 
-# ALL VARIABLES ARE STANDARDISED
+#  LOGISTIC REGRESSION FOR NOMINAL RESPONSES (MULTINOMIAL)
+crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Faggot','Prison','Minor'))
+
+# Standardization
 crimes_and_penances$PD1 <- scale(crimes_and_penances$PD1,center=TRUE,scale=TRUE)
 crimes_and_penances$PD2 <- scale(crimes_and_penances$PD2,center=TRUE,scale=TRUE)
 crimes_and_penances$woman <- scale(crimes_and_penances$woman,center=TRUE,scale=TRUE)
@@ -184,53 +172,27 @@ crimes_and_penances$witness <- scale(crimes_and_penances$witness,center=TRUE,sca
 crimes_and_penances$inculpations_send <- scale(crimes_and_penances$inculpations_send,center=TRUE,scale=TRUE)
 crimes_and_penances$inculpations_rec <- scale(crimes_and_penances$inculpations_rec,center=TRUE,scale=TRUE)
 
-#  LOGISTIC REGRESSION FOR NOMINAL RESPONSES (MULTINOMIAL)
-crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Faggot','Prison','Minor'))
-
-# Punishment as a function of charges
-model1 <- vglm(punishment ~ PD1 + PD2,
+# Model 1: only incriminations received
+model1 <- vglm(punishment ~ inculpations_rec,
           data=crimes_and_penances,family=multinomial)
 summary(model1)
 
-# Punishment as a function of charges + individual attributes (being a witness and sex)
-model2 <- vglm(punishment ~ PD1 + PD2 + woman + witness,
+# Model 2: incriminations received and sent
+model2 <- vglm(punishment ~ inculpations_rec + inculpations_send,
                data=crimes_and_penances,family=multinomial)
 summary(model2)
 
-# Punishment as a function of chargers + individual attributes + inculpations
-model3 <- vglm(punishment ~ PD1 + PD2 + woman + witness + inculpations_rec,
+# Model 3: incriminations received and witness
+model3 <- vglm(punishment ~ inculpations_rec + witness,
                data=crimes_and_penances,family=multinomial)
 summary(model3)
 
-model4 <- vglm(punishment ~ PD1 + PD2 + woman + witness + inculpations_send,
+# Model 4: incriminations received and gender
+model4 <- vglm(punishment ~ inculpations_rec + woman,
                data=crimes_and_penances,family=multinomial)
 summary(model4)
 
-########################################################################################################################
-
-# VISUALSIATION OF RESULTS
-model3_vis <- data.frame(
-  parameter = c('Intercept (faggot)','Intercept (prison)','Charges PD1 (faggot)','Charges PD1 (prison)','Charges PD2 (faggot)','Charges PD2 (prison)',
-                'Woman (faggot)','Woman (prison)','Witness (faggot)','Witness (prison)',
-                'Inculpations received (faggot)','Inculpations received (prison)'),
-  estimate = as.numeric(coefficients(model3)),
-  lower = as.numeric(confint(model3,level=.90)[,1]),
-  upper = as.numeric(confint(model3,level=.90)[,2])
-)
-
-# Order the y axis
-model3_vis$parameter <- factor(model3_vis$parameter,
-                               level = c('Inculpations received (prison)','Inculpations received (faggot)',
-                                         'Witness (prison)','Witness (faggot)','Woman (prison)','Woman (faggot)',
-                                         'Charges PD2 (prison)','Charges PD2 (faggot)','Charges PD1 (prison)','Charges PD1 (faggot)',
-                                         'Intercept (prison)','Intercept (faggot)'))
-
-jpeg(filename='Multinomial results.jpeg',width=9,height=7,units='in',res=500)
-ggplot(data=model3_vis, aes(x=parameter, y=estimate, ymin=lower, ymax=upper)) +
-  geom_hline(yintercept= 0, lty=2,colour='red') +
-  geom_pointrange(position=position_dodge(width = 0.5)) +
-  coord_flip() +
-  xlab("") + ylab("Estimate (90% CI)") +
-  theme_bw() +
-  theme(axis.text=element_text(size=12), axis.title=element_text(size=12))
-dev.off()
+# Model 5: incriminations received, gender, and charges
+model5 <- vglm(punishment ~ inculpations_rec + woman + PD1 + PD2,
+               data=crimes_and_penances,family=multinomial)
+summary(model5)
