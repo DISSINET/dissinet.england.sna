@@ -36,7 +36,7 @@ dim(persons);dim(ties);dim(kinship) # 78 individuals, 518 ties, and 49 kinship  
 
 # In the record, Tanner identified 53 defendants (but there are more individuals in the data: up to 78)
 # Are there differences between these 53 and the rest? (note in the data these defendants are referred to as deponents)
-persons <- persons[,tanners_defendant := ifelse(is.na(persons$deponent) | persons$deponent == '0',0,1)] # Tanner's defendants
+persons <- persons[,tanners_defendant := ifelse(is.na(persons$defendant) | persons$defendant == '0',0,1)] # Tanner's defendants
 
 # For example, how much do we know about defendants compared to non-defendats
 persons[,.(perc_sex_known = sum(!is.na(sex))/length(sex)*100, # sex
@@ -91,8 +91,10 @@ defendants_att <- defendants_att[match(V(naming_graph)$name,defendants_att$id),]
 
 V(naming_graph)$fullname <- defendants_att$label # full name
 V(naming_graph)$sex <- defendants_att$sex # sex
-V(naming_graph)$impenitent <- defendants_att$defendant # whether the person is an impenitent heretic
-V(naming_graph)$witness <- defendants_att$witness <- (igraph::degree(naming_graph,mode='out') != 0)*1 # Whether a witness
+V(naming_graph)$impenitent <- defendants_att$impenitent # whether the person is an impenitent heretic
+defendants_att$witness_against_impenitents <- ifelse(!is.na(defendants_att$witness_against_impenitents) & 
+                                                       defendants_att$witness_against_impenitents == 1,1,0)
+V(naming_graph)$witness <- defendants_att$witness_against_impenitents # Whether a witness
 V(naming_graph)$settlement <- defendants_att$origin_or_residence # Place of origin or residence
 
 # VISUALISATION
@@ -184,8 +186,8 @@ naming_ntw <- network(naming_mtx)
 # Add nodes attributes
 network::set.vertex.attribute(naming_ntw,'labels',defendants_att$label)
 network::set.vertex.attribute(naming_ntw,'sex',defendants_att$sex)
-network::set.vertex.attribute(naming_ntw,'impenitent',defendants_att$defendant)
-network::set.vertex.attribute(naming_ntw,'witness',defendants_att$witness)
+network::set.vertex.attribute(naming_ntw,'impenitent',defendants_att$impenitent)
+network::set.vertex.attribute(naming_ntw,'witness',defendants_att$witness_against_impenitents)
 
 # Jaccard indices for calculating matrix overlap
 Jaccard <- function(matrix1,matrix2){

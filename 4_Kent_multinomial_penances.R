@@ -133,7 +133,7 @@ crimes_and_penances <- merge(crimes_and_penances,defendants_att,all.x = TRUE)
 # Some bivariate tables
 table(crimes_and_penances$punishment,crimes_and_penances$inculpations_rec) # punishment received by incriminations received
 table(crimes_and_penances$punishment,crimes_and_penances$inculpations_send) # punishment received by incriminations sent
-table(crimes_and_penances$punishment,crimes_and_penances$witness) # punishment received by witness or not
+table(crimes_and_penances$punishment,crimes_and_penances$witness_against_impenitents) # punishment received by witness or not
 table(crimes_and_penances$punishment,crimes_and_penances$sex) # punishment received by sex
 
 ########################################################################################################################
@@ -144,13 +144,14 @@ crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c
 crimes_and_penances$woman <- ifelse(crimes_and_penances$sex == 'f',1,0)
 
 # BIVARIATE: CRIMES by PD1, WOMAN, WITNESS, ETC.
-LDA_penance <- lda(punishment ~  PD1 + PD2 + sex + witness + inculpations_send + inculpations_rec,
+LDA_penance <- lda(punishment ~  PD1 + PD2 + sex + witness_againts_impenitents + inculpations_send + inculpations_rec,
                    data=crimes_and_penances)
 (penances_mean <- round(LDA_penance$means*100,1))
 
 # Visualisation
 jpeg(filename='Correlations among variables.jpeg',width=12,height=12,units='in',res=1000)
-forplot <- crimes_and_penances[,c('punishment','inculpations_rec','inculpations_send','witness','woman','PD1','PD2')]
+forplot <- crimes_and_penances[,c('punishment','inculpations_rec','inculpations_send','witness_against_impenitents',
+                                  'woman','PD1','PD2')]
 names(forplot) <- c('Penance\nreceived','Times\nnamed','Names\ngiven','Witness','Woman','Charges\n(PD1)','Charges\n(PD2)')
 
 pairs.panels(forplot,
@@ -168,7 +169,7 @@ crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c
 crimes_and_penances$PD1 <- scale(crimes_and_penances$PD1,center=TRUE,scale=TRUE)
 crimes_and_penances$PD2 <- scale(crimes_and_penances$PD2,center=TRUE,scale=TRUE)
 crimes_and_penances$woman <- scale(crimes_and_penances$woman,center=TRUE,scale=TRUE)
-crimes_and_penances$witness <- scale(crimes_and_penances$witness,center=TRUE,scale=TRUE)
+crimes_and_penances$witness <- scale(crimes_and_penances$witness_against_impenitents,center=TRUE,scale=TRUE)
 crimes_and_penances$inculpations_send <- scale(crimes_and_penances$inculpations_send,center=TRUE,scale=TRUE)
 crimes_and_penances$inculpations_rec <- scale(crimes_and_penances$inculpations_rec,center=TRUE,scale=TRUE)
 
