@@ -39,7 +39,6 @@ siena_naming <- sienaDataCreate(
 sienaEff_naming <- getEffects(siena_naming)
 sienaEff_naming <- includeEffects(sienaEff_naming,gwespFF,name='naming')
 sienaEff_naming <- includeInteraction(sienaEff_naming,recip,gwespFF,parameter=69)
-sienaEff_naming <- includeEffects(sienaEff_naming,outIso,name='naming')
 sienaEff_naming <- includeEffects(sienaEff_naming,X,interaction1 = 'kinship')
 sienaEff_naming <- includeEffects(sienaEff_naming,X,interaction1 = 'same_settlement')
 sienaEff_naming <- includeEffects(sienaEff_naming,altX,egoX,sameX,interaction1 = 'sex')
