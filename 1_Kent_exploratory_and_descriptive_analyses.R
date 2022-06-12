@@ -54,7 +54,8 @@ defendants_id <- persons[persons$tanners_defendant == 1,]$id # the defendants' I
 
 # Information about ties
 names(ties) # ('from', 'to', type of tie 'arsubtype1', whether directed or undirected, and who reported those ties 'deponent')
-ties <- ties[,c('from','to','arsubtype1','arsubtype2','arsubtype3','arsubtype4','direction','deponent')]
+ties <- ties[,c('from','to','arsubtype1','arsubtype2','arsubtype3','arsubtype4','direction','deponent_id')]
+names(ties)[8] <- 'deponent'
 
 # There are 50 ties whose source (the deponent) is unknown
 ties <- ties[ties$deponent %in% defendants_id,] # We anly keep ties whose deponent we know
