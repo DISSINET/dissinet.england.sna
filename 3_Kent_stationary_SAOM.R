@@ -28,8 +28,8 @@ siena_naming <- sienaDataCreate(
   kinship = coDyadCovar(kinship_mtx),
   same_settlement = coDyadCovar(same_settlement_mtx),
   sex = coCovar(ifelse(defendants_att$sex == 'f',1,0),centered=TRUE),
-  witness = coCovar(defendants_att$witness,centered=TRUE),
-  impenitent = coCovar(defendants_att$defendant,centered=TRUE)
+  witness = coCovar(defendants_att$witness_against_impenitents,centered=TRUE),
+  impenitent = coCovar(defendants_att$impenitent,centered=TRUE)
 )
 
 ########################################################################################################################
