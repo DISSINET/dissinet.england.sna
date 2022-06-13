@@ -1,11 +1,12 @@
 ## LOLLARDS DATA
 ## KENT - INCULPATIONS, CRIMES, AND PENANCES (4)
 ## R script written by Jose Luis Estevez (Masaryk University)
-## Date: June 9th 2022
+## Date: June 13th 2022
 ########################################################################################################################
 
 # Required packages
-library(igraph);library(MASS);library(ggpubr);library(FactoMineR);library(factoextra);library(psych);library(VGAM)
+library(igraph);library(MASS);library(ggpubr)
+library(FactoMineR);library(factoextra);library(psych);library(VGAM)
 
 # LOADING
 rm(list=ls())
@@ -14,20 +15,27 @@ load('Kent_data.RData')
 ########################################################################################################################
 
 # DATA SELECTION
-# there are some individuals whose crimes are unknown
-unknown_crime <- which(rowSums(crimes_and_penances[,c(9:24)],na.rm=TRUE) == 0)
-crimes_and_penances <- crimes_and_penances[-unknown_crime,]
-# Also, we know that death penalty was the result of non abjuration, so I excluded individuals sentenced to death
-crimes_and_penances <- crimes_and_penances[crimes_and_penances$`punishment: execution (= handing over to the secular arm)` != 1,]
-# This leaves us with 43 subjects in total
 
-# Let's remove those who did not abjure heresy, or followed a different procedure
-crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% c('Simon Piers','Joan Bukherst','John Dodde'),]
+# Let's remove the 5 impenitent heretics
+impenitent_her <- persons[!is.na(persons$impenitent) & persons$impenitent == 1,]$id
+crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_id %!in% impenitent_her,]
+# Let's remove three individuals because of missing their penances
+crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% 
+                                             c('John Bampton','Simon Piers','William Pelland'),]
+# let's remove those who were not require to abjure and received no penance
+#crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% 
+#                                             c('James Bukherst','William Bukherst'),]
+# Remove those who were not require to abjure and received only light penances?
+#crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% 
+#                                             c('Joan Bukherst','John Dodde'),]
+
+# Charges and punishments as numeric
+crimes_and_penances[,9:38] <- lapply(crimes_and_penances[,9:38],as.numeric)
 
 ########################################################################################################################
 
 # PENANCES / PUNISHMENTS
-names(crimes_and_penances[,c(1,25:38)])
+names(crimes_and_penances[,c(1,25:38)]) # The punishments
 
 # Simplification of punishment received: prison (most severe), faggot, and minor (least severe)
 crimes_and_penances$punishment <- NA
@@ -38,7 +46,7 @@ for(i in 1:nrow(crimes_and_penances)){
   }else if(crimes_and_penances$`punishment: faggot depiction visibly worn on clothes (for life unless commuted)`[i] == 1){
     crimes_and_penances$punishment[i] <- 'Faggot'
   }else{
-    crimes_and_penances$punishment[i] <- 'Minor'
+    crimes_and_penances$punishment[i] <- 'Minor' # minor or no penance at all
   }
 }
 
@@ -46,7 +54,7 @@ for(i in 1:nrow(crimes_and_penances)){
 summary(crimes_and_penances$punishment)
 
 # CRIMES COMMITED
-crimes_and_penances <- crimes_and_penances[,c(1,9:24,40)] 
+crimes_and_penances <- crimes_and_penances[,c(1,9:24,ncol(crimes_and_penances))] # Keep only crimes and punishment received
 
 # NAs to zeros
 crimes_and_penances[is.na(crimes_and_penances)] <- 0
@@ -63,14 +71,14 @@ crimes_and_penances <- crimes_and_penances[,-c(6,11,13)]
 names(crimes_and_penances) <- c('id','Eucharist','Baptism','Confirmation','Confession','Priesthood','Matrimony','Extreme unction',
                                 'Pilgrimages','Images','Praying to saints','Blessing meal','Christology','Concealment','punishment')
 
-# Let's remove concealment which is constant, and Christology which is collinear
-crimes_and_penances <- crimes_and_penances[,names(crimes_and_penances) %!in% c('Concealment','Christology')]
+# Let's remove Christology
+crimes_and_penances <- crimes_and_penances[,names(crimes_and_penances) %!in% c('Christology')]
 
 ########################################################################################################################
 
 # BIVARIATE: CRIMES AND PENANCES 
 LDA_penance <- lda(punishment ~ Eucharist + Baptism + Confirmation + Confession + Priesthood + Matrimony + 
-                     `Extreme unction` + Pilgrimages + Images + `Praying to saints` + `Blessing meal`,
+                     `Extreme unction` + Pilgrimages + Images + `Praying to saints` + `Blessing meal` + Concealment,
                    data=crimes_and_penances)
 
 penances_mean <- round(LDA_penance$means[c(3,1,2),]*100,1)
@@ -85,7 +93,7 @@ dev.off()
 ########################################################################################################################
 
 # MULTIPLE CORRESPONDENCE ANALYSIS
-crimes <- as.data.frame(crimes_and_penances[,2:12]) 
+crimes <- as.data.frame(crimes_and_penances[,2:13]) 
 rownames(crimes) <- persons[persons$id %in% crimes_and_penances$id,]$label
 # Define as categorical
 for(i in 1:ncol(crimes)){
@@ -193,7 +201,7 @@ model4 <- vglm(punishment ~ inculpations_rec + woman,
                data=crimes_and_penances,family=multinomial)
 summary(model4)
 
-# Model 5: incriminations received and charges
-model5 <- vglm(punishment ~ inculpations_rec + PD1,
+# Model 5: incriminations received, women and charges
+model5 <- vglm(punishment ~ inculpations_rec + woman + PD1 + PD2,
                data=crimes_and_penances,family=multinomial)
 summary(model5)

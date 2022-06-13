@@ -25,16 +25,16 @@ kinship <- readxl::read_excel('Kent Kinship.xlsx',sheet='Kinship')
 kinship <- as.data.table(kinship[,c('id_subject','id_actant1')]) 
 
 # Information on crimes (charges) and penances (punishments)
-crimes_and_penances <- readxl::read_excel('Kent crime and punishment data.xlsx',sheet='Sheet1')
+crimes_and_penances <- readxl::read_excel('Kent crime and punishment data.xlsx',sheet='Data')
 
 # NUMBER OF INDIVIDUALS, TIES, and KINSHIP TIES AVAILABLE
-dim(persons);dim(ties);dim(kinship) # 78 individuals, 518 ties, and 49 kinship  ties
+dim(persons);dim(ties);dim(kinship) # 79 individuals, 518 ties, and 49 kinship  ties
 
 ########################################################################################################################
 
 # FIRST EXPLORATION
 
-# In the record, Tanner identified 53 defendants (but there are more individuals in the data: up to 78)
+# In the record, Tanner identified 53 defendants (but there are more individuals in the data: up to 79)
 # Are there differences between these 53 and the rest? (note in the data these defendants are referred to as deponents)
 persons <- persons[,tanners_defendant := ifelse(is.na(persons$defendant) | persons$defendant == '0',0,1)] # Tanner's defendants
 
@@ -57,7 +57,7 @@ names(ties) # ('from', 'to', type of tie 'arsubtype1', whether directed or undir
 ties <- ties[,c('from','to','arsubtype1','arsubtype2','arsubtype3','arsubtype4','direction','deponent_id')]
 names(ties)[8] <- 'deponent'
 
-# There are 50 ties whose source (the deponent) is unknown
+# There is one tie whose source (the deponent) is unknown
 ties <- ties[ties$deponent %in% defendants_id,] # We anly keep ties whose deponent we know
 
 # Now, we will create ties: who names whom (no matter is as the source (from) or as the target (to))
@@ -68,10 +68,10 @@ naming1 <- setnames(naming1,c('deponent','from'),c('deponent','to'))
 naming_ties <- rbind(naming1,naming2) # all naming ties
 rm(naming1);rm(naming2)
 naming_ties <- naming_ties[!duplicated(naming_ties),] # let's remove duplicated 
-naming_ties <- naming_ties[!(naming_ties$deponent == naming_ties$to),] # and let's remove loops (70 ties)
+naming_ties <- naming_ties[!(naming_ties$deponent == naming_ties$to),] # and let's remove loops (74 ties)
 
 # Finally, let's remove when people named others beyond the defendants (53)
-naming_ties <- naming_ties[naming_ties$to %in% defendants_id,] # Eventually, that makes 60 ties in total
+naming_ties <- naming_ties[naming_ties$to %in% defendants_id,] # Eventually, that makes 63 ties in total
 
 ########################################################################################################################
 
@@ -106,8 +106,8 @@ graph_layout <- layout_with_fr(naming_graph)
 
 jpeg(filename='Naming ties.jpeg',width=15,height=15,units='in',res=1000)
 plot(naming_graph,
-     vertex.color = ifelse(V(naming_graph)$impenitent == 1, "firebrick1",
-                           ifelse(V(naming_graph)$witness == 1,"dodgerblue",'grey')),
+     vertex.color = ifelse(V(naming_graph)$impenitent == 1, "#FF89AA",
+                           ifelse(V(naming_graph)$witness == 1,"#9ADDEE",'#F4EED2')),
      vertex.size = 8,
      vertex.label= V(naming_graph)$fullname, vertex.label.cex = 1, vertex.label.color = 'black',
      edge.color = 'tomato', edge.width = 2, edge.arrow.size = 0.75,
@@ -115,7 +115,7 @@ plot(naming_graph,
      main = "Naming ties")
 legend("bottomleft",pch=21,
        legend=c('Impenitent heretic','Witness','Defendant'),
-       pt.bg=c('firebrick1','dodgerblue','grey'),
+       pt.bg=c('#FF89AA','#9ADDEE','#F4EED2'),
        pt.cex=2, cex=1.75, bty="o", ncol=1)
 dev.off()
 
@@ -135,8 +135,8 @@ jpeg(filename='Naming ties per witness.jpeg',width=20,height=12,units='in',res=1
 par(mfrow=c(3,5)) # A 3 by 5 grid
 for(i in seq_along(naming_graphs)){
   plot(naming_graphs[[i]],
-       vertex.color = ifelse(V(naming_graphs[[i]])$impenitent == 1, "firebrick1",
-                             ifelse(V(naming_graphs[[i]])$witness == 1,"dodgerblue",'grey')),
+       vertex.color = ifelse(V(naming_graphs[[i]])$impenitent == 1, "#FF89AA",
+                             ifelse(V(naming_graphs[[i]])$witness == 1,"#9ADDEE",'#F4EED2')),
        vertex.size = 8,
        vertex.label= ifelse(igraph::degree(naming_graphs[[i]],mode = 'in') != 0,V(naming_graph)$fullname,NA), 
        vertex.label.cex = .5, vertex.label.color = 'black',
@@ -174,7 +174,7 @@ kinship_mtx <- kinship_mtx[match(rownames(naming_mtx),rownames(kinship_mtx)),mat
 diag(kinship_mtx) <- diag(same_settlement_mtx) <- diag(naming_mtx) <- NA # remove all the diagonals
 
 # Summary
-sum(naming_mtx,na.rm = TRUE) # 60 naming ties
+sum(naming_mtx,na.rm = TRUE) # 63 naming ties
 sum(same_settlement_mtx,na.rm = TRUE)/2 # 122 same-setting ties
 sum(kinship_mtx,na.rm = TRUE)/2 # 34 kinship ties
 
