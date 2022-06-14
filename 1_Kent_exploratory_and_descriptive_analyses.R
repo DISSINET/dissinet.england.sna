@@ -160,6 +160,7 @@ rownames(same_settlement_mtx) <- colnames(same_settlement_mtx) <- rownames(namin
 
 # Kinship matrix
 kinship_graph <- graph_from_edgelist(as.matrix.data.frame(kinship),directed = FALSE)
+kinship_graph <- simplify(kinship_graph,remove.multiple = TRUE) # remove duplicated ties
 # Addition of nodes
 kinship_graph <- igraph::add.vertices(kinship_graph, 
                                       length(defendants_id[defendants_id %!in% V(kinship_graph)$name]),
@@ -176,7 +177,7 @@ diag(kinship_mtx) <- diag(same_settlement_mtx) <- diag(naming_mtx) <- NA # remov
 # Summary
 sum(naming_mtx,na.rm = TRUE) # 63 naming ties
 sum(same_settlement_mtx,na.rm = TRUE)/2 # 122 same-setting ties
-sum(kinship_mtx,na.rm = TRUE)/2 # 34 kinship ties
+sum(kinship_mtx,na.rm = TRUE)/2 # 33 kinship ties
 
 ########################################################################################################################
 
