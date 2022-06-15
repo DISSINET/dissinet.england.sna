@@ -16,7 +16,7 @@ persons <- persons[!(persons$label == 'William Warham'),] # Let's remove the Inq
 persons <- as.data.table(persons)
 
 # Information on on incriminations and other types of ties
-ties <- readxl::read_excel('Kent Coding AKADB2+edges 2.1.xlsx',
+ties <- readxl::read_excel('Kent Coding AKADB2+edges 2.2 (June 2022).xlsx',
                    sheet='edges')
 ties <- as.data.table(ties)
 
@@ -28,7 +28,7 @@ kinship <- as.data.table(kinship[,c('id_subject','id_actant1')])
 crimes_and_penances <- readxl::read_excel('Kent crime and punishment data.xlsx',sheet='Data')
 
 # NUMBER OF INDIVIDUALS, TIES, and KINSHIP TIES AVAILABLE
-dim(persons);dim(ties);dim(kinship) # 79 individuals, 518 ties, and 49 kinship  ties
+dim(persons);dim(ties);dim(kinship) # 79 individuals, 519 ties, and 49 kinship  ties
 
 ########################################################################################################################
 
