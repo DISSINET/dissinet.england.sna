@@ -209,3 +209,8 @@ summary(model4)
 model5 <- vglm(punishment ~ inculpations_rec + woman + PD1 + PD2,
                data=crimes_and_penances,family=multinomial)
 summary(model5)
+
+# Model 6: All predictors
+model6 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + woman + PD1 + PD2,
+               data=crimes_and_penances,family=multinomial)
+summary(model6)
