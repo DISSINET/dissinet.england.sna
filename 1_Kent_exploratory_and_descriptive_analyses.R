@@ -72,6 +72,14 @@ naming_ties <- naming_ties[!(naming_ties$deponent == naming_ties$to),] # and let
 # Finally, let's remove when people named others beyond the defendants (53)
 naming_ties <- naming_ties[naming_ties$to %in% defendants_id,] # Eventually, that makes 65 ties in total
 
+# Manual check
+# William Baker (P01) never named Thomas Harwode (P34) or Joan Harwode (P35)
+naming_ties <- naming_ties[!(naming_ties$deponent == 'P01' & naming_ties$to == 'P34'),] 
+naming_ties <- naming_ties[!(naming_ties$deponent == 'P01' & naming_ties$to == 'P35'),] 
+# William Riche (P55) never named Christopher Grebill (P31) or John Grebill Jr (P32)
+naming_ties <- naming_ties[!(naming_ties$deponent == 'P55' & naming_ties$to == 'P31'),] 
+naming_ties <- naming_ties[!(naming_ties$deponent == 'P55' & naming_ties$to == 'P32'),] 
+
 ########################################################################################################################
 
 # VISUALISATION OF THE NAMING NETWORK
