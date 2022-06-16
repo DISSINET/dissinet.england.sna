@@ -1,7 +1,7 @@
 ## LOLLARDS DATA
 ## KENT - Exploratory and descriptive analyses (1)
 ## R script written by Jose Luis Estevez (Masaryk University)
-## Date: June 9th 2022
+## Date: June 15th 2022
 ########################################################################################################################
 
 # Required packages
@@ -15,20 +15,16 @@ persons <- readxl::read_excel('Kent Persons.xlsx',sheet='Persons')
 persons <- persons[!(persons$label == 'William Warham'),] # Let's remove the Inquisitor out of the sample
 persons <- as.data.table(persons)
 
-# Information on on incriminations and other types of ties
+# Information on on incriminations and other types of ties (like kinship)
 ties <- readxl::read_excel('Kent Coding AKADB2+edges 2.2 (June 2022).xlsx',
                    sheet='edges')
 ties <- as.data.table(ties)
 
-# Information on kinship ties
-kinship <- readxl::read_excel('Kent Kinship.xlsx',sheet='Kinship')
-kinship <- as.data.table(kinship[,c('id_subject','id_actant1')]) 
-
 # Information on crimes (charges) and penances (punishments)
 crimes_and_penances <- readxl::read_excel('Kent crime and punishment data.xlsx',sheet='Data')
 
-# NUMBER OF INDIVIDUALS, TIES, and KINSHIP TIES AVAILABLE
-dim(persons);dim(ties);dim(kinship) # 79 individuals, 519 ties, and 49 kinship  ties
+# NUMBER OF INDIVIDUALS AND TIES AVAILABLE
+dim(persons);dim(ties) # 79 individuals, 570 ties
 
 ########################################################################################################################
 
@@ -50,15 +46,18 @@ defendants_id <- persons[persons$tanners_defendant == 1,]$id # the defendants' I
 
 ########################################################################################################################
 
-# SELECTION OF TIES: NAMING (who named whom in trial)
+# SELECTION OF TIES: NAMING (who named whom in trial) and KINSHIP
 
 # Information about ties
 names(ties) # ('from', 'to', type of tie 'arsubtype1', whether directed or undirected, and who reported those ties 'deponent')
 ties <- ties[,c('from','to','arsubtype1','arsubtype2','arsubtype3','arsubtype4','direction','deponent_id')]
 names(ties)[8] <- 'deponent'
 
+kinship <- ties[ties$arsubtype1 == 'social relation',] # Kinship ties for later
+
+# Naming ties
 # There is one tie whose source (the deponent) is unknown
-ties <- ties[ties$deponent %in% defendants_id,] # We anly keep ties whose deponent we know
+ties <- ties[ties$deponent %in% defendants_id,] # We only keep ties whose deponent we know
 
 # Now, we will create ties: who names whom (no matter is as the source (from) or as the target (to))
 naming1 <- ties[,.(deponent,from)]
@@ -68,10 +67,10 @@ naming1 <- setnames(naming1,c('deponent','from'),c('deponent','to'))
 naming_ties <- rbind(naming1,naming2) # all naming ties
 rm(naming1);rm(naming2)
 naming_ties <- naming_ties[!duplicated(naming_ties),] # let's remove duplicated 
-naming_ties <- naming_ties[!(naming_ties$deponent == naming_ties$to),] # and let's remove loops (74 ties)
+naming_ties <- naming_ties[!(naming_ties$deponent == naming_ties$to),] # and let's remove loops (78 ties)
 
 # Finally, let's remove when people named others beyond the defendants (53)
-naming_ties <- naming_ties[naming_ties$to %in% defendants_id,] # Eventually, that makes 63 ties in total
+naming_ties <- naming_ties[naming_ties$to %in% defendants_id,] # Eventually, that makes 65 ties in total
 
 ########################################################################################################################
 
@@ -159,7 +158,8 @@ same_settlement_mtx <- outer(defendants_att$origin_or_residence, defendants_att$
 rownames(same_settlement_mtx) <- colnames(same_settlement_mtx) <- rownames(naming_mtx)
 
 # Kinship matrix
-kinship_graph <- graph_from_edgelist(as.matrix.data.frame(kinship),directed = FALSE)
+kinship <- kinship[kinship$from %in% defendants_id & kinship$to %in% defendants_id,] # remove ties with non-defendats
+kinship_graph <- graph_from_edgelist(as.matrix.data.frame(kinship[,c('from','to')]),directed = FALSE)
 kinship_graph <- simplify(kinship_graph,remove.multiple = TRUE) # remove duplicated ties
 # Addition of nodes
 kinship_graph <- igraph::add.vertices(kinship_graph, 
@@ -175,9 +175,9 @@ kinship_mtx <- kinship_mtx[match(rownames(naming_mtx),rownames(kinship_mtx)),mat
 diag(kinship_mtx) <- diag(same_settlement_mtx) <- diag(naming_mtx) <- NA # remove all the diagonals
 
 # Summary
-sum(naming_mtx,na.rm = TRUE) # 63 naming ties
+sum(naming_mtx,na.rm = TRUE) # 65 naming ties
 sum(same_settlement_mtx,na.rm = TRUE)/2 # 122 same-setting ties
-sum(kinship_mtx,na.rm = TRUE)/2 # 33 kinship ties
+sum(kinship_mtx,na.rm = TRUE)/2 # 34 kinship ties
 
 ########################################################################################################################
 

@@ -86,7 +86,7 @@ penances_mean <- round(LDA_penance$means[c(3,1,2),]*100,1)
 # Visualisation
 jpeg(filename='Charges and penances.jpeg',width=8,height=5.5,units='in',res=1000)
 ggballoonplot(penances_mean,show.label = TRUE,fill='value',size=12) +
-  gradient_fill(c("royalblue", "white", "red")) +
+  gradient_fill(c("firebrick2","coral","wheat","cadetblue","cornflowerblue")) +
   labs(fill='Frequency (%)') 
 dev.off()
 
@@ -119,9 +119,10 @@ p4 <- fviz_contrib(MCA_crimes,choice="var",axes=2,top=10) # Contributions of row
 
 p5 <- fviz_mca_biplot(MCA_crimes,axes=1:2,repel = TRUE,col.var='royalblue',col.ind='tomato')
 
-jpeg(filename='Multiple correspondence analysis outcome.jpeg',width=15,height=12,units='in',res=1000)
-ggarrange(ggarrange(p1,p3,p4,nrow=3,labels=c('A','C','D')),ggarrange(p2,p5,nrow=2,labels=c('B','E')),
-          ncol=2,widths=c(.75,1))
+jpeg(filename='Multiple correspondence analysis outcome.jpeg',width=16,height=12,units='in',res=1000)
+ggarrange(ggarrange(p1,p3,p4,nrow=3,labels=c('A','B','C')),
+          ggarrange(p5,nrow=1,labels=c('D')),
+          ncol=2,widths=c(.5,1))
 dev.off()
 
 crimes_and_penances$PD1 <- MCA_crimes$ind$coord[,1]
@@ -202,6 +203,6 @@ model4 <- vglm(punishment ~ inculpations_rec + woman,
 summary(model4)
 
 # Model 5: incriminations received, women and charges
-model5 <- vglm(punishment ~ inculpations_rec + woman + PD1 + PD2,
+model5 <- vglm(punishment ~ inculpations_rec + PD1 + PD2,
                data=crimes_and_penances,family=multinomial)
 summary(model5)
