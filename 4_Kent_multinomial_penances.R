@@ -1,7 +1,7 @@
 ## LOLLARDS DATA
 ## KENT - INCULPATIONS, CRIMES, AND PENANCES (4)
 ## R script written by Jose Luis Estevez (Masaryk University)
-## Date: June 13th 2022
+## Date: June 16th 2022
 ########################################################################################################################
 
 # Required packages
@@ -19,9 +19,9 @@ load('Kent_data.RData')
 # Let's remove the 5 impenitent heretics
 impenitent_her <- persons[!is.na(persons$impenitent) & persons$impenitent == 1,]$id
 crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_id %!in% impenitent_her,]
-# Let's remove three individuals because of missing their penances
+# Let's remove the individual whose penances are missing
 crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% 
-                                             c('John Bampton','Simon Piers','William Pelland'),]
+                                             c('Simon Piers'),]
 # let's remove those who were not require to abjure and received no penance
 #crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% 
 #                                             c('James Bukherst','William Bukherst'),]
@@ -54,7 +54,7 @@ for(i in 1:nrow(crimes_and_penances)){
 summary(crimes_and_penances$punishment)
 
 # CRIMES COMMITED
-crimes_and_penances <- crimes_and_penances[,c(1,9:24,ncol(crimes_and_penances))] # Keep only crimes and punishment received
+crimes_and_penances <- crimes_and_penances[,c(1:2,9:24,ncol(crimes_and_penances))] # Keep only crimes and punishment received
 
 # NAs to zeros
 crimes_and_penances[is.na(crimes_and_penances)] <- 0
@@ -62,13 +62,16 @@ crimes_and_penances[is.na(crimes_and_penances)] <- 0
 # SimpliFIcation of crimes
 names(crimes_and_penances)
 
-crimes_and_penances[,5] <-  apply(crimes_and_penances[,5:6],1,max,na.rm=TRUE) # related to confession
-crimes_and_penances[,10] <-  apply(crimes_and_penances[,10:11],1,max,na.rm=TRUE) # related to pilgrimages
-crimes_and_penances[,12] <-  apply(crimes_and_penances[,12:13],1,max,na.rm=TRUE) # related to images
-crimes_and_penances <- crimes_and_penances[,-c(6,11,13)]
+crimes_and_penances[,6] <-  apply(crimes_and_penances[,6:7],1,max,na.rm=TRUE) # related to confession
+crimes_and_penances[,11] <-  apply(crimes_and_penances[,11:12],1,max,na.rm=TRUE) # related to pilgrimages
+crimes_and_penances[,13] <-  apply(crimes_and_penances[,13:14],1,max,na.rm=TRUE) # related to images
+crimes_and_penances <- crimes_and_penances[,-c(7,12,14)]
+
+# Remmeber that 'John Bampton' (P03) and 'William Pelland' (P50) have their crimes missing
+crimes_and_penances[crimes_and_penances$person_id %in% c('P03','P50'),c(3:15)] <- NA
 
 # These leaves with 13 crimes or charges
-names(crimes_and_penances) <- c('id','Eucharist','Baptism','Confirmation','Confession','Priesthood','Matrimony','Extreme unction',
+names(crimes_and_penances) <- c('id','label','Eucharist','Baptism','Confirmation','Confession','Priesthood','Matrimony','Extreme unction',
                                 'Pilgrimages','Images','Praying to saints','Blessing meal','Christology','Concealment','punishment')
 
 # Let's remove Christology
@@ -93,8 +96,12 @@ dev.off()
 ########################################################################################################################
 
 # MULTIPLE CORRESPONDENCE ANALYSIS
-crimes <- as.data.frame(crimes_and_penances[,2:13]) 
-rownames(crimes) <- persons[persons$id %in% crimes_and_penances$id,]$label
+crimes <- as.data.frame(crimes_and_penances[,3:14]) 
+rownames(crimes) <- crimes_and_penances$label
+
+# remove those whose crimes are missing
+crimes <- crimes[rownames(crimes) %!in% c('John Bampton','William Pelland'),]
+
 # Define as categorical
 for(i in 1:ncol(crimes)){
   crimes[,i] <- factor(crimes[,i],levels=0:1,labels=c('no','yes'))
@@ -125,8 +132,13 @@ ggarrange(ggarrange(p1,p3,p4,nrow=3,labels=c('A','B','C')),
           ncol=2,widths=c(.5,1))
 dev.off()
 
-crimes_and_penances$PD1 <- MCA_crimes$ind$coord[,1]
-crimes_and_penances$PD2 <- MCA_crimes$ind$coord[,2]
+# Merge data
+pd1 <- as.data.frame(MCA_crimes$ind$coord[,1])
+names(pd1) <- 'PD1'
+pd2 <- as.data.frame(MCA_crimes$ind$coord[,2])
+names(pd2) <- 'PD2'
+crimes_and_penances <- merge(crimes_and_penances,pd1,by.x='label',by.y=0,all.x=TRUE)
+crimes_and_penances <- merge(crimes_and_penances,pd2,by.x='label',by.y=0,all.x=TRUE)
 
 ########################################################################################################################
 
@@ -185,32 +197,17 @@ crimes_and_penances$witness <- scale(crimes_and_penances$witness_against_impenit
 crimes_and_penances$inculpations_send <- scale(crimes_and_penances$inculpations_send,center=TRUE,scale=TRUE)
 crimes_and_penances$inculpations_rec <- scale(crimes_and_penances$inculpations_rec,center=TRUE,scale=TRUE)
 
-# Model 1: only incriminations received
-model1 <- vglm(punishment ~ inculpations_rec,
+# Model 1
+model1 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness,
           data=crimes_and_penances,family=multinomial)
 summary(model1)
 
-# Model 2: incriminations received and sent
-model2 <- vglm(punishment ~ inculpations_rec + inculpations_send,
+# Model 2
+model2 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + PD1 + PD2,
                data=crimes_and_penances,family=multinomial)
 summary(model2)
 
-# Model 3: incriminations received and witness
-model3 <- vglm(punishment ~ inculpations_rec + witness,
+# Model 3
+model3 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + PD1 + PD2 + woman,
                data=crimes_and_penances,family=multinomial)
 summary(model3)
-
-# Model 4: incriminations received and gender
-model4 <- vglm(punishment ~ inculpations_rec + woman,
-               data=crimes_and_penances,family=multinomial)
-summary(model4)
-
-# Model 5: incriminations received, women and charges
-model5 <- vglm(punishment ~ inculpations_rec + woman + PD1 + PD2,
-               data=crimes_and_penances,family=multinomial)
-summary(model5)
-
-# Model 6: All predictors
-model6 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + woman + PD1 + PD2,
-               data=crimes_and_penances,family=multinomial)
-summary(model6)
