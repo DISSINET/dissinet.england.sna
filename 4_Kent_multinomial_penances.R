@@ -206,6 +206,6 @@ model4 <- vglm(punishment ~ inculpations_rec + woman,
 summary(model4)
 
 # Model 5: incriminations received, women and charges
-model5 <- vglm(punishment ~ inculpations_rec + PD1 + PD2,
+model5 <- vglm(punishment ~ inculpations_rec + woman + PD1 + PD2,
                data=crimes_and_penances,family=multinomial)
 summary(model5)
