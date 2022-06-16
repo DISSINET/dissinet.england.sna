@@ -161,9 +161,9 @@ LDA_penance <- lda(punishment ~  PD1 + PD2 + sex + witness_againts_impenitents +
 jpeg(filename='Correlations among variables.jpeg',width=12,height=12,units='in',res=1000)
 forplot <- crimes_and_penances[,c('punishment','inculpations_rec','inculpations_send','witness_against_impenitents',
                                   'woman','PD1','PD2')]
-names(forplot) <- c('Penance\n(minor-faggot-prison)',
-                    'Number of defendants\nnaming you\n(in-degree)',
-                    'Names given\nto the inquisitor\n(out-degree)',
+names(forplot) <- c('Penance received\n(minor-faggot-prison)',
+                    'Number of other defendants\nwho gave your name\n(naming in-degree)',
+                    'Number of names given\nto the inquisitor\n(naming out-degree)',
                     'Witness\n(no-yes)','Sex\n(man-woman)','Charges\n(Dimension 1)','Charges\n(Dimension 2)')
 
 pairs.panels(forplot,
