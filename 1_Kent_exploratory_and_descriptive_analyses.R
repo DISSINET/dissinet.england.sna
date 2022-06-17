@@ -1,7 +1,7 @@
 ## LOLLARDS DATA
 ## KENT - Exploratory and descriptive analyses (1)
 ## R script written by Jose Luis Estevez (Masaryk University)
-## Date: June 15th 2022
+## Date: June 17th 2022
 ########################################################################################################################
 
 # Required packages
@@ -23,7 +23,7 @@ ties <- as.data.table(ties)
 
 # Information on crimes (charges) and penances (punishments)
 crimes_and_penances <- read_sheet('https://docs.google.com/spreadsheets/d/1n6LFc0SP0xvad4UeGkpM0zSoqEFrNGD_oao8b6MiMio/edit#gid=0',
-                                  sheet='Data',na=c('NA','NULL',NULL,''))
+                                  sheet='Data',na=c('NA','NS','NULL',NULL,''))
 
 # Alternatively, use this
 #load('data.RData')

@@ -1,7 +1,7 @@
 ## LOLLARDS DATA
 ## KENT - INCULPATIONS, CRIMES, AND PENANCES (4)
 ## R script written by Jose Luis Estevez (Masaryk University)
-## Date: June 16th 2022
+## Date: June 17th 2022
 ########################################################################################################################
 
 # Required packages
@@ -20,15 +20,15 @@ load('Kent_data.RData')
 impenitent_her <- persons[!is.na(persons$impenitent) & persons$impenitent == 1,]$id
 crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_id %!in% impenitent_her,]
 # Let's remove the individual whose penances are missing
-crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% c('Simon Piers'),]
+crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% c('Simon Piers','Agnes Chetynden','Robert Hilles'),]
 
 # Charges and punishments as numeric
-crimes_and_penances[,9:38] <- lapply(crimes_and_penances[,9:38],as.numeric)
+crimes_and_penances[,9:39] <- lapply(crimes_and_penances[,9:39],as.numeric)
 
 ########################################################################################################################
 
 # PENANCES / PUNISHMENTS
-names(crimes_and_penances[,c(1,25:38)]) # The punishments
+names(crimes_and_penances[,c(1,26:39)]) # The punishments
 
 # Simplification of punishment received: prison (most severe), faggot, and minor (least severe)
 crimes_and_penances$punishment <- NA
@@ -36,7 +36,10 @@ crimes_and_penances$punishment <- NA
 for(i in 1:nrow(crimes_and_penances)){
   if(crimes_and_penances$`punishment: prison for life`[i] == 1){
     crimes_and_penances$punishment[i] <- 'Prison'
-  }else if(crimes_and_penances$`punishment: faggot depiction visibly worn on clothes (for life unless commuted)`[i] == 1){
+  }else if(crimes_and_penances$`punishment: faggot depiction visibly worn on clothes (for life unless commuted)`[i] == 1 
+           #| crimes_and_penances$`punishment: faggot in a main church`[i] == 1 
+           #| crimes_and_penances$`punishment: faggot in own parish church or cemetery`[i] == 1
+           ){
     crimes_and_penances$punishment[i] <- 'Faggot'
   }else{
     crimes_and_penances$punishment[i] <- 'Minor' # minor or no penance at all
@@ -46,8 +49,30 @@ for(i in 1:nrow(crimes_and_penances)){
 (crimes_and_penances$punishment <- as.factor(crimes_and_penances$punishment))
 summary(crimes_and_penances$punishment)
 
+# VISUALISATION
+# Add penances to the naming grahp object
+V(naming_graph)$penance <- as.character(crimes_and_penances[match(V(naming_graph)$name,crimes_and_penances$person_id),]$punishment)
+
+jpeg(filename='Naming ties with penances.jpeg',width=15,height=15,units='in',res=1000)
+plot(naming_graph,
+     vertex.color = ifelse(V(naming_graph)$impenitent == 1, "indianred1",
+                           ifelse(V(naming_graph)$penance == 'Prison',"sandybrown",
+                                  ifelse(V(naming_graph)$penance == 'Faggot','goldenrod1','darkolivegreen1'))),
+     vertex.size = 8,
+     vertex.label= V(naming_graph)$fullname, vertex.label.cex = 1, vertex.label.color = 'black',
+     edge.color = 'tomato', edge.width = 2, edge.arrow.size = 0.75,
+     layout = graph_layout,
+     main = "Naming ties")
+legend("bottomleft",pch=21,
+       legend=c('Execution','Prison','Faggot (for life)','Minor or no penance','Penance missing'),
+       pt.bg=c('indianred1','sandybrown','goldenrod1','darkolivegreen1','white'),
+       pt.cex=2, cex=1.75, bty="o", ncol=1)
+dev.off()
+
+########################################################################################################################
+
 # CRIMES COMMITED
-crimes_and_penances <- crimes_and_penances[,c(1:2,9:24,ncol(crimes_and_penances))] # Keep only crimes and punishment received
+crimes_and_penances <- crimes_and_penances[,c(1:2,9:25,ncol(crimes_and_penances))] # Keep only crimes and punishment received
 
 # NAs to zeros
 crimes_and_penances[is.na(crimes_and_penances)] <- 0
@@ -55,10 +80,11 @@ crimes_and_penances[is.na(crimes_and_penances)] <- 0
 # SimpliFIcation of crimes
 names(crimes_and_penances)
 
-crimes_and_penances[,6] <-  apply(crimes_and_penances[,6:7],1,max,na.rm=TRUE) # related to confession
-crimes_and_penances[,11] <-  apply(crimes_and_penances[,11:12],1,max,na.rm=TRUE) # related to pilgrimages
-crimes_and_penances[,13] <-  apply(crimes_and_penances[,13:14],1,max,na.rm=TRUE) # related to images
-crimes_and_penances <- crimes_and_penances[,-c(7,12,14)]
+crimes_and_penances[,3] <-  apply(crimes_and_penances[,3:4],1,max,na.rm=TRUE) # related to Eucharist
+crimes_and_penances[,7] <-  apply(crimes_and_penances[,7:8],1,max,na.rm=TRUE) # related to confession
+crimes_and_penances[,12] <-  apply(crimes_and_penances[,12:13],1,max,na.rm=TRUE) # related to pilgrimages
+crimes_and_penances[,14] <-  apply(crimes_and_penances[,14:15],1,max,na.rm=TRUE) # related to images
+crimes_and_penances <- crimes_and_penances[,-c(4,8,13,15)]
 
 # Remmeber that 'John Bampton' (P03) and 'William Pelland' (P50) have their crimes missing
 crimes_and_penances[crimes_and_penances$person_id %in% c('P03','P50'),c(3:15)] <- NA
@@ -140,6 +166,7 @@ crimes_and_penances <- merge(crimes_and_penances,pd2,by.x='label',by.y=0,all.x=T
 # Extraction of number of inculpations sent and received
 defendants_att$inculpations_send <- rowSums(naming_mtx,na.rm = TRUE)
 defendants_att$inculpations_rec <- colSums(naming_mtx,na.rm = TRUE)
+defendants_att$named <- (defendants_att$inculpations_rec > 0)*1 # Whether named (yes or no)
 
 # Merge crimes and punishment with the rest of the data
 crimes_and_penances <- merge(crimes_and_penances,defendants_att,all.x = TRUE)
@@ -164,12 +191,13 @@ LDA_penance <- lda(punishment ~  PD1 + PD2 + sex + witness_againts_impenitents +
 
 # Visualisation
 jpeg(filename='Correlations among variables.jpeg',width=12,height=12,units='in',res=1000)
-forplot <- crimes_and_penances[,c('punishment','inculpations_rec','inculpations_send','witness_against_impenitents',
+forplot <- crimes_and_penances[,c('punishment','inculpations_rec','named',
+                                  'inculpations_send','witness_against_impenitents',
                                   'woman','PD1','PD2')]
 names(forplot) <- c('Penance received\n(minor-faggot-prison)',
-                    'Number of other defendants\nwho gave your name\n(naming in-degree)',
-                    'Number of names given\nto the inquisitor\n(naming out-degree)',
-                    'Witness\n(no-yes)','Sex\n(man-woman)','Charges\n(Dimension 1)','Charges\n(Dimension 2)')
+                    'Number of other defendants\nwho gave your name\n(naming in-degree)','Named by other\n(no-yes)',
+                    'Number of names given\nto the inquisitor\n(naming out-degree)','Witness\n(no-yes)',
+                    'Sex\n(man-woman)','Charges\n(Dimension 1)','Charges\n(Dimension 2)')
 
 pairs.panels(forplot,
              method = "spearman",stars = TRUE,
@@ -187,25 +215,41 @@ crimes_and_penances$PD1 <- scale(crimes_and_penances$PD1,center=TRUE,scale=TRUE)
 crimes_and_penances$PD2 <- scale(crimes_and_penances$PD2,center=TRUE,scale=TRUE)
 crimes_and_penances$woman <- scale(crimes_and_penances$woman,center=TRUE,scale=TRUE)
 crimes_and_penances$witness <- scale(crimes_and_penances$witness_against_impenitents,center=TRUE,scale=TRUE)
+crimes_and_penances$named <- scale(crimes_and_penances$named,center=TRUE,scale=TRUE)
 crimes_and_penances$inculpations_send <- scale(crimes_and_penances$inculpations_send,center=TRUE,scale=TRUE)
 crimes_and_penances$inculpations_rec <- scale(crimes_and_penances$inculpations_rec,center=TRUE,scale=TRUE)
 
 # Model 1
-model1 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness,
+model1 <- vglm(punishment ~ inculpations_rec + inculpations_send + woman,
           data=crimes_and_penances,family=multinomial)
 summary(model1)
 
 # Model 2
-model2 <- vglm(punishment ~ inculpations_rec + PD1 + PD2,
+model2 <- vglm(punishment ~ inculpations_rec + inculpations_send + PD1 + PD2,
                data=crimes_and_penances,family=multinomial)
 summary(model2)
 
 # Model 3
-model3 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + PD1 + PD2,
+model3 <- vglm(punishment ~ inculpations_rec + inculpations_send + PD1 + PD2 + woman,
                data=crimes_and_penances,family=multinomial)
 summary(model3)
 
-# Model 4
-model4 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + PD1 + PD2 + woman,
-               data=crimes_and_penances,family=multinomial)
-summary(model4)
+########################################################################################################################
+
+#  LOGISTIC REGRESSION: SEVERE VS MINOR PENANCE (BINOMIAL)
+#crimes_and_penances$y <- 1*crimes_and_penances$punishment %in% c('Prison','Faggot')
+#  
+## Model 1
+#model1 <- glm(y ~ inculpations_rec + inculpations_send + woman,
+#               data=crimes_and_penances,family=binomial)
+#summary(model1)
+#
+## Model 2
+#model2 <- glm(y ~ inculpations_rec + inculpations_send + PD1 + PD2,
+#               data=crimes_and_penances,family=binomial)
+#summary(model2)
+#
+## Model 3
+#model3 <- glm(y ~ inculpations_rec + inculpations_send + PD1 + PD2 + woman,
+#               data=crimes_and_penances,family=binomial)
+#summary(model3)
