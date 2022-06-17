@@ -196,11 +196,16 @@ model1 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness,
 summary(model1)
 
 # Model 2
-model2 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + PD1 + PD2,
+model2 <- vglm(punishment ~ inculpations_rec + PD1 + PD2,
                data=crimes_and_penances,family=multinomial)
 summary(model2)
 
 # Model 3
-model3 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + PD1 + PD2 + woman,
+model3 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + PD1 + PD2,
                data=crimes_and_penances,family=multinomial)
 summary(model3)
+
+# Model 4
+model4 <- vglm(punishment ~ inculpations_rec + inculpations_send + witness + PD1 + PD2 + woman,
+               data=crimes_and_penances,family=multinomial)
+summary(model4)
