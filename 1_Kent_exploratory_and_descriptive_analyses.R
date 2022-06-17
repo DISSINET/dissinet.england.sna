@@ -5,23 +5,28 @@
 ########################################################################################################################
 
 # Required packages
-library(igraph);library(sna);library(data.table):library(isnar)
+library(googlesheets4);library(igraph);library(sna);library(data.table):library(isnar)
 
 # DATA LOADING
 rm(list=ls())
 
 # Information about individuals (attributes)
-persons <- readxl::read_excel('Kent Persons.xlsx',sheet='Persons') 
+persons <- read_sheet('https://docs.google.com/spreadsheets/d/1oU4fwqaUgSnbv9NTjAQbSIooF9J5axzt5MfYCPWEhWE/edit#gid=927538745',
+                      sheet='Persons') 
 persons <- persons[!(persons$label == 'William Warham'),] # Let's remove the Inquisitor out of the sample
 persons <- as.data.table(persons)
 
 # Information on on incriminations and other types of ties (like kinship)
-ties <- readxl::read_excel('Kent Coding AKADB2+edges 2.2 (June 2022).xlsx',
+ties <- read_sheet('https://docs.google.com/spreadsheets/d/1PBYZytxJrHPf1-otQVG9BwHu16IA_4lMBUMeARllqcs/edit#gid=422007223',
                    sheet='edges')
 ties <- as.data.table(ties)
 
 # Information on crimes (charges) and penances (punishments)
-crimes_and_penances <- readxl::read_excel('Kent crime and punishment data.xlsx',sheet='Data')
+crimes_and_penances <- read_sheet('https://docs.google.com/spreadsheets/d/1n6LFc0SP0xvad4UeGkpM0zSoqEFrNGD_oao8b6MiMio/edit#gid=0',
+                                  sheet='Data',na=c('NA','NULL',NULL,''))
+
+# Alternatively, use this
+save.image('data.RData')
 
 # NUMBER OF INDIVIDUALS AND TIES AVAILABLE
 dim(persons);dim(ties) # 79 individuals, 570 ties
@@ -37,7 +42,7 @@ persons <- persons[,tanners_defendant := ifelse(is.na(persons$defendant) | perso
 # For example, how much do we know about defendants compared to non-defendats
 persons[,.(perc_sex_known = sum(!is.na(sex))/length(sex)*100, # sex
            perc_age_known = sum(!is.na(age_tens))/length(age_tens)*100, # age (approx.)
-           perc_settlement_known = sum(!is.na(origin_or_residence))/length(origin_or_residence)*100, # settlement
+           perc_settlement_known = sum(!is.na(residence))/length(residence)*100, # settlement
            perc_job_known = sum(!is.na(occupation_type))/length(occupation_type)*100), # occupation
         keyby=tanners_defendant] # by whether Tanner categorized them or not as defendants
 # We see that we have far more information about defendants than about non-defendants
@@ -67,15 +72,12 @@ naming1 <- setnames(naming1,c('deponent','from'),c('deponent','to'))
 naming_ties <- rbind(naming1,naming2) # all naming ties
 rm(naming1);rm(naming2)
 naming_ties <- naming_ties[!duplicated(naming_ties),] # let's remove duplicated 
-naming_ties <- naming_ties[!(naming_ties$deponent == naming_ties$to),] # and let's remove loops (78 ties)
+naming_ties <- naming_ties[!(naming_ties$deponent == naming_ties$to),] # and let's remove loops (76 ties)
 
 # Finally, let's remove when people named others beyond the defendants (53)
-naming_ties <- naming_ties[naming_ties$to %in% defendants_id,] # Eventually, that makes 65 ties in total
+naming_ties <- naming_ties[naming_ties$to %in% defendants_id,] # Eventually, that makes 63 ties in total
 
 # Manual check
-# William Baker (P01) never named Thomas Harwode (P34) or Joan Harwode (P35)
-naming_ties <- naming_ties[!(naming_ties$deponent == 'P01' & naming_ties$to == 'P34'),] 
-naming_ties <- naming_ties[!(naming_ties$deponent == 'P01' & naming_ties$to == 'P35'),] 
 # William Riche (P55) never named Christopher Grebill (P31) or John Grebill Jr (P32)
 naming_ties <- naming_ties[!(naming_ties$deponent == 'P55' & naming_ties$to == 'P31'),] 
 naming_ties <- naming_ties[!(naming_ties$deponent == 'P55' & naming_ties$to == 'P32'),] 
@@ -103,7 +105,6 @@ V(naming_graph)$impenitent <- defendants_att$impenitent # whether the person is 
 defendants_att$witness_against_impenitents <- ifelse(!is.na(defendants_att$witness_against_impenitents) & 
                                                        defendants_att$witness_against_impenitents == 1,1,0)
 V(naming_graph)$witness <- defendants_att$witness_against_impenitents # Whether a witness
-V(naming_graph)$settlement <- defendants_att$origin_or_residence # Place of origin or residence
 
 # VISUALISATION
 
@@ -165,12 +166,12 @@ naming_mtx[rownames(naming_mtx) %!in% witnesses_id,] <- NA # Those who did not d
 same_settlement_mtx <- naming_mtx*0
 same_settlement_mtx[is.na(same_settlement_mtx)] <- 0
 
-# I will use 4 variables here: residence, residence2, former residence, and origin
-residences <- defendants_att[,c('id','label','origin_or_residence','origin','residence','residence2','residence_former')]
+# I will use 5 variables here: residence, residence2, former residence, and origin 
+residences <- defendants_att[,c('id','label','origin','residence','residence2','residence_former')]
 # Change "Canterbury: Parish of St. George" for just "Canterbury
 residences$residence[!is.na(residences$residence) & residences$residence == "Canterbury: Parish of St. George"] <- 'Canterbury'
 
-# residence2 and residence_former are almost empty, we can put them together
+# residence2 and residence_former are almost empty with no overlaps, so we can put them together
 for(i in 1:nrow(residences)){
   if(is.na(residences$residence2[i])){
     residences$residence2[i] <- residences$residence_former[i]
@@ -180,8 +181,7 @@ for(i in 1:nrow(residences)){
 # If we are missing a persons' all residences and origin, then missing
 residences$missing <- ifelse(is.na(residences$origin) & 
                              is.na(residences$residence) & 
-                             is.na(residences$residence2) &
-                             is.na(residences$origin_or_residence),1,0)
+                             is.na(residences$residence2),1,0)
 
 # Same settlement if either same residence, residence 2 or origin
 for(i in rownames(same_settlement_mtx)){
@@ -189,20 +189,12 @@ for(i in rownames(same_settlement_mtx)){
     same_settlement_mtx[i,j] <- ifelse((persons[persons$id == i,]$residence == persons[persons$id == j,]$residence) |
                                        (persons[persons$id == i,]$residence == persons[persons$id == j,]$residence2) |
                                        (persons[persons$id == i,]$residence == persons[persons$id == j,]$origin) |
-                                       (persons[persons$id == i,]$residence == persons[persons$id == j,]$origin_or_residence) | 
                                        (persons[persons$id == i,]$residence2 == persons[persons$id == j,]$residence) |
                                        (persons[persons$id == i,]$residence2 == persons[persons$id == j,]$residence2) |
                                        (persons[persons$id == i,]$residence2 == persons[persons$id == j,]$origin) |
-                                       (persons[persons$id == i,]$residence2 == persons[persons$id == j,]$origin_or_residence) |
                                        (persons[persons$id == i,]$origin == persons[persons$id == j,]$residence) |
                                        (persons[persons$id == i,]$origin == persons[persons$id == j,]$residence2) |
-                                       (persons[persons$id == i,]$origin == persons[persons$id == j,]$origin) |
-                                       (persons[persons$id == i,]$origin == persons[persons$id == j,]$origin_or_residence) |
-                                       (persons[persons$id == i,]$origin_or_residence == persons[persons$id == j,]$residence) |
-                                       (persons[persons$id == i,]$origin_or_residence == persons[persons$id == j,]$residence2) |
-                                       (persons[persons$id == i,]$origin_or_residence == persons[persons$id == j,]$origin) |
-                                       (persons[persons$id == i,]$origin_or_residence == persons[persons$id == j,]$origin_or_residence)
-                                       ,1,0)
+                                       (persons[persons$id == i,]$origin == persons[persons$id == j,]$origin),1,0)
   }
 }
 
@@ -231,8 +223,8 @@ kinship_mtx <- kinship_mtx[match(rownames(naming_mtx),rownames(kinship_mtx)),mat
 diag(kinship_mtx) <- diag(same_settlement_mtx) <- diag(naming_mtx) <- NA # remove all the diagonals
 
 # Summary
-sum(naming_mtx,na.rm = TRUE) # 65 naming ties
-sum(same_settlement_mtx,na.rm = TRUE)/2 # 151 same-setting ties
+sum(naming_mtx,na.rm = TRUE) # 61 naming ties
+sum(same_settlement_mtx,na.rm = TRUE)/2 # 155 same-setting ties
 sum(kinship_mtx,na.rm = TRUE)/2 # 34 kinship ties
 
 ########################################################################################################################

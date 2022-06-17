@@ -20,14 +20,7 @@ load('Kent_data.RData')
 impenitent_her <- persons[!is.na(persons$impenitent) & persons$impenitent == 1,]$id
 crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_id %!in% impenitent_her,]
 # Let's remove the individual whose penances are missing
-crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% 
-                                             c('Simon Piers'),]
-# let's remove those who were not require to abjure and received no penance
-#crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% 
-#                                             c('James Bukherst','William Bukherst'),]
-# Remove those who were not require to abjure and received only light penances?
-#crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% 
-#                                             c('Joan Bukherst','John Dodde'),]
+crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% c('Simon Piers'),]
 
 # Charges and punishments as numeric
 crimes_and_penances[,9:38] <- lapply(crimes_and_penances[,9:38],as.numeric)
