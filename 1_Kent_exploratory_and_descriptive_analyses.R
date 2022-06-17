@@ -26,7 +26,7 @@ crimes_and_penances <- read_sheet('https://docs.google.com/spreadsheets/d/1n6LFc
                                   sheet='Data',na=c('NA','NULL',NULL,''))
 
 # Alternatively, use this
-save.image('data.RData')
+#load('data.RData')
 
 # NUMBER OF INDIVIDUALS AND TIES AVAILABLE
 dim(persons);dim(ties) # 79 individuals, 570 ties
