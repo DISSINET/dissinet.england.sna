@@ -161,11 +161,59 @@ par(mfrow=c(1,1))
 naming_mtx <- as.matrix(get.adjacency(naming_graph)) # Let's get the adjacency matrix of the naming graph
 naming_mtx[rownames(naming_mtx) %!in% witnesses_id,] <- NA # Those who did not depose have NAs in their rowns
 
-# Same settlement matrix
-same_settlement_mtx <- outer(defendants_att$origin_or_residence, defendants_att$origin_or_residence, '==')*1
-rownames(same_settlement_mtx) <- colnames(same_settlement_mtx) <- rownames(naming_mtx)
+# SAME SETTLEMENT matrix
+same_settlement_mtx <- naming_mtx*0
+same_settlement_mtx[is.na(same_settlement_mtx)] <- 0
 
-# Kinship matrix
+# I will use 4 variables here: residence, residence2, former residence, and origin
+residences <- defendants_att[,c('id','label','origin_or_residence','origin','residence','residence2','residence_former')]
+# Change "Canterbury: Parish of St. George" for just "Canterbury
+residences$residence[!is.na(residences$residence) & residences$residence == "Canterbury: Parish of St. George"] <- 'Canterbury'
+
+# residence2 and residence_former are almost empty, we can put them together
+for(i in 1:nrow(residences)){
+  if(is.na(residences$residence2[i])){
+    residences$residence2[i] <- residences$residence_former[i]
+  }
+}
+
+# If we are missing a persons' all residences and origin, then missing
+residences$missing <- ifelse(is.na(residences$origin) & 
+                             is.na(residences$residence) & 
+                             is.na(residences$residence2) &
+                             is.na(residences$origin_or_residence),1,0)
+
+# Same settlement if either same residence, residence 2 or origin
+for(i in rownames(same_settlement_mtx)){
+  for(j in colnames(same_settlement_mtx)){
+    same_settlement_mtx[i,j] <- ifelse((persons[persons$id == i,]$residence == persons[persons$id == j,]$residence) |
+                                       (persons[persons$id == i,]$residence == persons[persons$id == j,]$residence2) |
+                                       (persons[persons$id == i,]$residence == persons[persons$id == j,]$origin) |
+                                       (persons[persons$id == i,]$residence == persons[persons$id == j,]$origin_or_residence) | 
+                                       (persons[persons$id == i,]$residence2 == persons[persons$id == j,]$residence) |
+                                       (persons[persons$id == i,]$residence2 == persons[persons$id == j,]$residence2) |
+                                       (persons[persons$id == i,]$residence2 == persons[persons$id == j,]$origin) |
+                                       (persons[persons$id == i,]$residence2 == persons[persons$id == j,]$origin_or_residence) |
+                                       (persons[persons$id == i,]$origin == persons[persons$id == j,]$residence) |
+                                       (persons[persons$id == i,]$origin == persons[persons$id == j,]$residence2) |
+                                       (persons[persons$id == i,]$origin == persons[persons$id == j,]$origin) |
+                                       (persons[persons$id == i,]$origin == persons[persons$id == j,]$origin_or_residence) |
+                                       (persons[persons$id == i,]$origin_or_residence == persons[persons$id == j,]$residence) |
+                                       (persons[persons$id == i,]$origin_or_residence == persons[persons$id == j,]$residence2) |
+                                       (persons[persons$id == i,]$origin_or_residence == persons[persons$id == j,]$origin) |
+                                       (persons[persons$id == i,]$origin_or_residence == persons[persons$id == j,]$origin_or_residence)
+                                       ,1,0)
+  }
+}
+
+# Change NAs for zeros
+same_settlement_mtx[is.na(same_settlement_mtx)] <- 0
+
+# Add NAs for those whose place is missing
+same_settlement_mtx[rownames(same_settlement_mtx) %in% residences[residences$missing == 1,]$id,] <- NA
+same_settlement_mtx[,colnames(same_settlement_mtx) %in% residences[residences$missing == 1,]$id] <- NA
+
+# KINSHIP matrix
 kinship <- kinship[kinship$from %in% defendants_id & kinship$to %in% defendants_id,] # remove ties with non-defendats
 kinship_graph <- graph_from_edgelist(as.matrix.data.frame(kinship[,c('from','to')]),directed = FALSE)
 kinship_graph <- simplify(kinship_graph,remove.multiple = TRUE) # remove duplicated ties
@@ -184,7 +232,7 @@ diag(kinship_mtx) <- diag(same_settlement_mtx) <- diag(naming_mtx) <- NA # remov
 
 # Summary
 sum(naming_mtx,na.rm = TRUE) # 65 naming ties
-sum(same_settlement_mtx,na.rm = TRUE)/2 # 122 same-setting ties
+sum(same_settlement_mtx,na.rm = TRUE)/2 # 151 same-setting ties
 sum(kinship_mtx,na.rm = TRUE)/2 # 34 kinship ties
 
 ########################################################################################################################
