@@ -5,8 +5,7 @@
 ########################################################################################################################
 
 # Required packages
-library(igraph);library(MASS);library(ggpubr)
-library(FactoMineR);library(factoextra);library(psych);library(VGAM)
+library(igraph);library(MASS);library(ggpubr);library(FactoMineR);library(factoextra);library(psych)
 
 # LOADING
 rm(list=ls())
@@ -19,8 +18,8 @@ load('Kent_data.RData')
 # Let's remove the 5 impenitent heretics
 impenitent_her <- persons[!is.na(persons$impenitent) & persons$impenitent == 1,]$id
 crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_id %!in% impenitent_her,]
-# Let's remove the individual whose penances are missing
-crimes_and_penances <- crimes_and_penances[crimes_and_penances$person_label %!in% c('Simon Piers','Agnes Chetynden','Robert Hilles'),]
+# There are three people whose penances are missing
+crimes_and_penances$penance_missing <- (crimes_and_penances$person_label %in% c('Simon Piers','Agnes Chetynden','Robert Hilles'))*1
 
 # Charges and punishments as numeric
 crimes_and_penances[,9:39] <- lapply(crimes_and_penances[,9:39],as.numeric)
@@ -34,11 +33,13 @@ names(crimes_and_penances[,c(1,26:39)]) # The punishments
 crimes_and_penances$punishment <- NA
 
 for(i in 1:nrow(crimes_and_penances)){
-  if(crimes_and_penances$`punishment: prison for life`[i] == 1){
+  if(crimes_and_penances$penance_missing[i] == 1){
+    crimes_and_penances$punishment[i] <- NA
+  }else if(crimes_and_penances$`punishment: prison for life`[i] == 1){
     crimes_and_penances$punishment[i] <- 'Prison'
   }else if(crimes_and_penances$`punishment: faggot depiction visibly worn on clothes (for life unless commuted)`[i] == 1 
-           #| crimes_and_penances$`punishment: faggot in a main church`[i] == 1 
-           #| crimes_and_penances$`punishment: faggot in own parish church or cemetery`[i] == 1
+           | crimes_and_penances$`punishment: faggot in a main church`[i] == 1 
+           | crimes_and_penances$`punishment: faggot in own parish church or cemetery`[i] == 1
            ){
     crimes_and_penances$punishment[i] <- 'Faggot'
   }else{
@@ -64,7 +65,7 @@ plot(naming_graph,
      layout = graph_layout,
      main = "Naming ties")
 legend("bottomleft",pch=21,
-       legend=c('Execution','Prison','Faggot (for life)','Minor or no penance','Penance missing'),
+       legend=c('Execution','Prison','Faggot','Minor or no penance','Penance missing'),
        pt.bg=c('indianred1','sandybrown','goldenrod1','darkolivegreen1','white'),
        pt.cex=2, cex=1.75, bty="o", ncol=1)
 dev.off()
@@ -75,9 +76,9 @@ dev.off()
 crimes_and_penances <- crimes_and_penances[,c(1:2,9:25,ncol(crimes_and_penances))] # Keep only crimes and punishment received
 
 # NAs to zeros
-crimes_and_penances[is.na(crimes_and_penances)] <- 0
+crimes_and_penances[crimes_and_penances$person_label == 'Thomas Mannyng',]$`concealment of heresy` <- 0
 
-# SimpliFIcation of crimes
+# Simplification of crimes
 names(crimes_and_penances)
 
 crimes_and_penances[,3] <-  apply(crimes_and_penances[,3:4],1,max,na.rm=TRUE) # related to Eucharist
@@ -86,8 +87,8 @@ crimes_and_penances[,12] <-  apply(crimes_and_penances[,12:13],1,max,na.rm=TRUE)
 crimes_and_penances[,14] <-  apply(crimes_and_penances[,14:15],1,max,na.rm=TRUE) # related to images
 crimes_and_penances <- crimes_and_penances[,-c(4,8,13,15)]
 
-# Remmeber that 'John Bampton' (P03) and 'William Pelland' (P50) have their crimes missing
-crimes_and_penances[crimes_and_penances$person_id %in% c('P03','P50'),c(3:15)] <- NA
+# Remmeber that 'John Bampton' (P03), 'Robert Franke' (P28) and 'William Pelland' (P50) have their crimes missing
+crimes_and_penances[crimes_and_penances$person_id %in% c('P03','P28','P50'),c(3:15)] <- NA
 
 # These leaves with 13 crimes or charges
 names(crimes_and_penances) <- c('id','label','Eucharist','Baptism','Confirmation','Confession','Priesthood','Matrimony','Extreme unction',
@@ -119,7 +120,7 @@ crimes <- as.data.frame(crimes_and_penances[,3:14])
 rownames(crimes) <- crimes_and_penances$label
 
 # remove those whose crimes are missing
-crimes <- crimes[rownames(crimes) %!in% c('John Bampton','William Pelland'),]
+crimes <- crimes[rownames(crimes) %!in% c('John Bampton','Robert Franke','William Pelland'),]
 
 # Define as categorical
 for(i in 1:ncol(crimes)){
@@ -191,12 +192,11 @@ LDA_penance <- lda(punishment ~  PD1 + PD2 + sex + witness_againts_impenitents +
 
 # Visualisation
 jpeg(filename='Correlations among variables.jpeg',width=12,height=12,units='in',res=1000)
-forplot <- crimes_and_penances[,c('punishment','inculpations_rec','named',
-                                  'inculpations_send','witness_against_impenitents',
+forplot <- crimes_and_penances[,c('punishment','inculpations_rec','inculpations_send',
                                   'woman','PD1','PD2')]
 names(forplot) <- c('Penance received\n(minor-faggot-prison)',
-                    'Number of other defendants\nwho gave your name\n(naming in-degree)','Named by other\n(no-yes)',
-                    'Number of names given\nto the inquisitor\n(naming out-degree)','Witness\n(no-yes)',
+                    'Number of other defendants\nwho gave your name\n(naming in-degree)',
+                    'Number of names given\nto the inquisitor\n(naming out-degree)',
                     'Sex\n(man-woman)','Charges\n(Dimension 1)','Charges\n(Dimension 2)')
 
 pairs.panels(forplot,
@@ -207,9 +207,7 @@ dev.off()
 
 ########################################################################################################################
 
-#  LOGISTIC REGRESSION FOR NOMINAL RESPONSES (MULTINOMIAL)
-crimes_and_penances$punishment <- factor(crimes_and_penances$punishment,levels=c('Faggot','Prison','Minor'))
-
+#  HYPOTHESIS TESTING
 # Standardization
 crimes_and_penances$PD1 <- scale(crimes_and_penances$PD1,center=TRUE,scale=TRUE)
 crimes_and_penances$PD2 <- scale(crimes_and_penances$PD2,center=TRUE,scale=TRUE)
@@ -219,37 +217,57 @@ crimes_and_penances$named <- scale(crimes_and_penances$named,center=TRUE,scale=T
 crimes_and_penances$inculpations_send <- scale(crimes_and_penances$inculpations_send,center=TRUE,scale=TRUE)
 crimes_and_penances$inculpations_rec <- scale(crimes_and_penances$inculpations_rec,center=TRUE,scale=TRUE)
 
-# Model 1
-model1 <- vglm(punishment ~ inculpations_rec + inculpations_send + woman,
-          data=crimes_and_penances,family=multinomial)
+#  LOGISTIC REGRESSION: PRISON OR FAGGOT VS. MINOR
+crimes_and_penances$prisonfaggot <- ifelse(crimes_and_penances$punishment %in% c('Prison','Faggot'),1,0)
+crimes_and_penances$prisonfaggot[which(is.na(crimes_and_penances$punishment))] <- NA # remove those missing
+
+# Model 1: Penances
+model1 <- glm(prisonfaggot ~ PD1 + PD2,
+              data=crimes_and_penances,family=binomial)
 summary(model1)
 
-# Model 2
-model2 <- vglm(punishment ~ inculpations_rec + inculpations_send + PD1 + PD2,
-               data=crimes_and_penances,family=multinomial)
+# Model 2: Penances and gender
+model2 <- glm(prisonfaggot ~ PD1 + PD2 + woman,
+              data=crimes_and_penances,family=binomial)
 summary(model2)
 
-# Model 3
-model3 <- vglm(punishment ~ inculpations_rec + inculpations_send + PD1 + PD2 + woman,
-               data=crimes_and_penances,family=multinomial)
+########################################################################################################################
+
+#  LOGISTIC REGRESSION: PRISON VS FAGGOT OR MINOR
+
+crimes_and_penances$prison <- ifelse(crimes_and_penances$punishment == 'Prison',1,0)
+crimes_and_penances$prison[which(is.na(crimes_and_penances$punishment))] <- NA # remove those missing
+
+# Model 1: Penances and gender
+model1 <- glm(prison ~ PD1 + PD2 + woman,
+              data=crimes_and_penances,family=binomial)
+summary(model1)
+
+# Model 2: Penances, gender, witness and named
+model2 <- glm(prison ~ PD1 + PD2 + woman + witness + named,
+              data=crimes_and_penances,family=binomial)
+summary(model2)
+
+# Model 3: Penances, gender, naming out-degree and naming in-degree
+model3 <- glm(prison ~ PD1 + PD2 + woman + inculpations_send + inculpations_rec,
+              data=crimes_and_penances,family=binomial)
 summary(model3)
 
 ########################################################################################################################
 
-#  LOGISTIC REGRESSION: SEVERE VS MINOR PENANCE (BINOMIAL)
-#crimes_and_penances$y <- 1*crimes_and_penances$punishment %in% c('Prison','Faggot')
-#  
-## Model 1
-#model1 <- glm(y ~ inculpations_rec + inculpations_send + woman,
-#               data=crimes_and_penances,family=binomial)
-#summary(model1)
-#
-## Model 2
-#model2 <- glm(y ~ inculpations_rec + inculpations_send + PD1 + PD2,
-#               data=crimes_and_penances,family=binomial)
-#summary(model2)
-#
-## Model 3
-#model3 <- glm(y ~ inculpations_rec + inculpations_send + PD1 + PD2 + woman,
-#               data=crimes_and_penances,family=binomial)
-#summary(model3)
+# LOGISTIC REGRESSION: ONLY PRISON VS. FAGGOT
+
+# Model 1
+model1 <- glm(prison ~ PD1 + PD2 + woman,
+              data=crimes_and_penances[crimes_and_penances$punishment %in% c('Prison','Faggot'),],family=binomial)
+summary(model1)
+
+# Model 2: Penances, gender, witness and named
+model2 <- glm(prison ~ PD1 + PD2 + woman + witness + named,
+              data=crimes_and_penances[crimes_and_penances$punishment %in% c('Prison','Faggot'),],family=binomial)
+summary(model2)
+
+# Model 3: Penances, gender, naming out-degree and naming in-degree
+model3 <- glm(prison ~ PD1 + PD2 + woman + inculpations_send + inculpations_rec,
+              data=crimes_and_penances[crimes_and_penances$punishment %in% c('Prison','Faggot'),],family=binomial)
+summary(model3)
