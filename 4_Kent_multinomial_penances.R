@@ -59,8 +59,11 @@ plot(naming_graph,
      vertex.color = ifelse(V(naming_graph)$impenitent == 1, "indianred1",
                            ifelse(V(naming_graph)$penance == 'Prison',"sandybrown",
                                   ifelse(V(naming_graph)$penance == 'Faggot','goldenrod1','darkolivegreen1'))),
+     vertex.frame.color=grey(0.25,.75),
      vertex.size = 8,
-     vertex.label= V(naming_graph)$fullname, vertex.label.cex = 1, vertex.label.color = 'black',
+     vertex.label= V(naming_graph)$fullname, vertex.label.cex = .5, vertex.label.color = 'black',
+     vertex.label.font=2,
+     vertex.label.family= "Times",
      edge.color = 'tomato', edge.width = 2, edge.arrow.size = 0.75,
      layout = graph_layout,
      main = "Naming ties")
@@ -194,12 +197,20 @@ LDA_penance <- lda(punishment ~  PD1 + PD2 + sex + witness_againts_impenitents +
 jpeg(filename='Correlations among variables.jpeg',width=12,height=12,units='in',res=1000)
 forplot <- crimes_and_penances[,c('punishment','inculpations_rec','inculpations_send',
                                   'woman','PD1','PD2')]
+
+forplot$severe <- ifelse(crimes_and_penances$punishment %in% c('Prison','Faggot'),1,0)
+forplot$severe[which(is.na(forplot$punishment))] <- NA # remove those missing
+
+forplot$prisontofaggot <- ifelse(crimes_and_penances$punishment %in% c('Prison'),1,0)
+forplot$prisontofaggot[which(is.na(forplot$punishment) | forplot$punishment == 'Minor')] <- NA # remove missing and minor penances
+
 names(forplot) <- c('Penance received\n(minor-faggot-prison)',
                     'Number of other defendants\nwho gave your name\n(naming in-degree)',
                     'Number of names given\nto the inquisitor\n(naming out-degree)',
-                    'Sex\n(man-woman)','Charges\n(Dimension 1)','Charges\n(Dimension 2)')
+                    'Sex\n(man vs. woman)','Charges\n(Dimension 1)','Charges\n(Dimension 2)',
+                    'Penance received\n(minor/none vs. prison/faggot)','Penance received\n(faggot vs. prison)')
 
-pairs.panels(forplot,
+pairs.panels(forplot[,-1], # don't show the variable with three values: minor, faggot, prison
              method = "spearman",stars = TRUE,
              lm=TRUE,ci=TRUE,ellipses=FALSE,
              pch = 21,jiggle=TRUE,factor=.15,hist.col = 'skyblue',scale=FALSE)
